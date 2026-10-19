@@ -24,8 +24,14 @@ sleep 1
   --collection Check --profile Check --scene Scene > "$O/obs.log" 2>&1) &
 sleep $((SECS + 8))
 grep -E "v4l2-input: (Start capture|Resolution|Pixelformat|Framerate)" "$O/obs.log" || { tail -20 "$O/obs.log"; exit 1; }
-F=$(ls "$O"/rec/*.mkv)
-ffprobe -v error -count_frames -select_streams v -show_entries stream=width,height,nb_read_frames -of csv=p=0 "$F" | \
-  awk -F, '{printf "OBS recorded %s frames at %sx%s\n", $3, $1, $2}'
-ffmpeg -loglevel error -y -i "$F" -vf "fps=1,scale=320:-1,tile=4x2" -frames:v 1 out/obs-check.png
+# OBS buffers the file under load; wait until what it has written parses.
+for _ in $(seq 1 30); do
+  F=$(ls "$O"/rec/*.mkv 2>/dev/null | head -1)
+  STATS=$([ -n "$F" ] && ffprobe -v quiet -count_frames -select_streams v -show_entries stream=width,height,nb_read_frames -of csv=p=0 "$F" || true)
+  [ -n "$STATS" ] && [ "$(echo "$STATS" | cut -d, -f3)" != "N/A" ] && break
+  sleep 1
+done
+[ -n "$STATS" ] || { echo "OBS wrote no readable recording"; exit 1; }
+echo "$STATS" | awk -F, '{printf "OBS recorded %s frames at %sx%s\n", $3, $1, $2}'
+ffmpeg -loglevel quiet -y -i "$F" -vf "fps=1,scale=320:-1,tile=4x2" -frames:v 1 out/obs-check.png
 echo "snapshot: out/obs-check.png"
