@@ -76,6 +76,7 @@ Click **SAVE** to keep your changes in `~/.config/digital-standin/config.toml`.
 
 1. Run `make run`. Type your name under **YOUR NAMES** and click **SAVE**.
 2. Open <https://meet.google.com/new> in Chrome. In the preview, choose **Digital Standin** as the camera, then join.
+   In Meet's **Settings > Audio**, set **Speakers** to **System default** (or the same device your system sound settings use). The stand-in listens only to the system's default output; if Meet plays to another device, it hears nothing. Once someone talks, words should appear in the transcript panel.
 3. Join the same meeting from your phone, as the other participant. Keep the phone's camera on so you can see the laptop's tile.
 4. Mute the laptop's speakers.
 5. On the phone, talk for a while, tell a joke and laugh, then ask "What do you think, \<your name\>?".

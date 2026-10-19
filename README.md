@@ -37,7 +37,7 @@ make run
 Then:
 
 1. Type your name into **YOUR NAMES** in the control panel and click **SAVE**.
-2. In Google Meet, open **Settings > Video** and pick **Digital Standin**.
+2. In Google Meet, open **Settings > Video** and pick **Digital Standin**. Under **Settings > Audio**, leave **Speakers** on **System default**, because the stand-in listens to the system's default output.
 3. Mute your speakers if you like. The stand-in still hears the meeting.
 
 `make stop` stops everything and frees the GPU. `make help` lists the other targets.
