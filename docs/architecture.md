@@ -26,7 +26,7 @@ Every stage runs on its own thread and hands data on through channels. A slow de
 
 ## Decisions
 
-**Reflexes.** Laughter above `laugh_threshold` triggers a smile, and above `big_laugh` a laugh, within 0.1 s. Detection already lags laughter onset by about 0.7 s, so no further delay is added. While someone keeps talking, a soft nod follows every 7 to 16 s; lively talk shortens that interval and dull talk stretches it. A name match on your aliases raises an alert at once.
+**Reflexes.** Laughter above `laugh_threshold` triggers a smile, and above `big_laugh` a laugh, as soon as it is detected. Detection already lags laughter onset by about half a second, a human-like delay. While someone keeps talking, a soft nod follows every 7 to 16 s; lively talk shortens that interval and dull talk stretches it. A name match on your aliases raises an alert at once.
 
 **The decision model.** When an utterance ends (0.7 s of silence), and every 2 s during long speech, the brain sends one request with four questions:
 - `reaction`: which state fits, chosen from the manifest's state descriptions.

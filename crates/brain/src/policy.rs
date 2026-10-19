@@ -194,9 +194,9 @@ impl Brain {
         };
         if let Some(state) = laugh_state {
             let reason = format!("laughter {laughter:.2}, applause {applause:.2}");
-            // Detection already lags laughter onset by about 0.7 s, which is a human-like delay.
-            let delay = self.rng.random_range(0.0..0.1);
-            self.schedule(now, delay, Reaction { state, urgent: true, intensity: None, source: Source::Laughter, reason });
+            // Detection already lags laughter onset by about half a second, a human-like delay.
+            // Lower thresholds did not detect sooner through the pipeline, only added stray smiles.
+            self.schedule(now, 0.0, Reaction { state, urgent: true, intensity: None, source: Source::Laughter, reason });
         }
         self.fire_due(now)
     }
@@ -406,10 +406,9 @@ mod tests {
     }
 
     #[test]
-    fn big_laughter_laughs_after_a_short_human_delay() {
+    fn big_laughter_laughs_as_soon_as_it_is_detected() {
         let mut b = brain();
-        assert!(reactions(&b.on_cues(10.0, false, 0.7, 0.0)).is_empty(), "not instant");
-        let out = run(&mut b, 10.05, 10.5);
+        let out = b.on_cues(10.0, false, 0.7, 0.0);
         assert_eq!(reactions(&out), vec!["laugh"]);
         assert!(matches!(&out[0], Output::React(r) if r.urgent && r.source == Source::Laughter));
     }
@@ -417,10 +416,9 @@ mod tests {
     #[test]
     fn mild_laughter_smiles_and_does_not_repeat_within_the_gap() {
         let mut b = brain();
-        b.on_cues(10.0, false, 0.35, 0.0);
-        assert_eq!(reactions(&run(&mut b, 10.05, 10.5)), vec!["smile"]);
-        b.on_cues(12.0, false, 0.35, 0.0);
-        assert!(reactions(&run(&mut b, 12.05, 13.0)).is_empty(), "same-state gap holds");
+        assert_eq!(reactions(&b.on_cues(10.0, false, 0.35, 0.0)), vec!["smile"]);
+        assert!(reactions(&b.on_cues(12.0, false, 0.35, 0.0)).is_empty(), "same-state gap holds");
+        assert!(reactions(&run(&mut b, 12.05, 13.0)).is_empty());
     }
 
     #[test]
@@ -554,8 +552,7 @@ mod tests {
         let mut cfg = b.config().clone();
         cfg.disabled = vec!["laugh".into(), "nod".into()];
         b.set_config(cfg);
-        b.on_cues(10.0, false, 0.9, 0.0);
-        assert_eq!(reactions(&run(&mut b, 10.05, 10.6)), vec!["smile"], "big laughter falls back to smile");
+        assert_eq!(reactions(&b.on_cues(10.0, false, 0.9, 0.0)), vec!["smile"], "big laughter falls back to smile");
         b.on_words(20.0, " right");
         let t = answer_finished(&mut b, 20.0, 22.0);
         b.on_decision(t, Ok(decision("nod", 0.9, 0.0)));
@@ -569,8 +566,8 @@ mod tests {
         b.on_words(1.0, " fine");
         run(&mut b, 1.0, 2.0);
         b.on_decision(2.0, Ok(decision("nod", 0.9, 0.0)));
-        b.on_cues(2.05, false, 0.8, 0.0);
-        assert_eq!(reactions(&run(&mut b, 2.1, 3.5)), vec!["laugh"]);
+        assert_eq!(reactions(&b.on_cues(2.05, false, 0.8, 0.0)), vec!["laugh"]);
+        assert!(reactions(&run(&mut b, 2.1, 3.5)).is_empty(), "the pending nod gave way to the laugh");
     }
 
     #[test]

@@ -32,7 +32,7 @@ Measured on an RTX 5090 Laptop GPU on 2026-10-19, with the 160 ms speech model. 
 
 | Check | Result |
 |---|---|
-| Laughter, 12 laughs mixed into a meeting | 12/12 caught, median reaction 0.59 s after onset, no smiles outside the laughs |
+| Laughter, 12 laughs mixed into a meeting | 12/12 caught, median reaction 0.56 s after onset, no smiles outside the laughs |
 | Talk-show audience reactions (caption labels) | 3/3 |
 | Laughter-free meeting, 5 min | No smiles or laughs |
 | Persona Cindy, asked "what do you think Cindy" | Alerted, showed `thinking` |
