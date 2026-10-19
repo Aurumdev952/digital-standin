@@ -1,0 +1,11 @@
+[package]
+name = "audio"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+tracing.workspace = true
+pipewire = "0.10"
+rtrb = "0.3"
+crossbeam-channel.workspace = true

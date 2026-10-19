@@ -1,0 +1,11 @@
+{"state": {"situation": "Sam is in a video meeting with the camera on and the microphone muted, listening without speaking. Pick the nonverbal reaction a natural, attentive listener would show right now.",
+  "transcript_of_meeting_audio": "[ 41s ago] I don't see the header updated yet. I thought we had in Slack sort of farmed each one of them out.\n[ 28s ago] So I guess the ask would be to work with your GTM team.\n[ 17s ago] Were y'all able to connect with your GTM teams on Slack?\n[ 10s ago] Only on the issue actually, not in real time, but I got one person to respond so far.\n[  1s ago] Sam, do you have a regular sync with them still, or have those all been canceled?",
+  "latest_utterance": "Sam, do you have a regular sync with them still, or have those all been canceled?",
+  "latest_utterance_finished": true, "seconds_since_anyone_spoke": 0.8, "room_laughter_level_0_to_1": 0.0,
+  "listener_current_expression": "idle", "seconds_since_listener_last_reacted": 14.0},
+ "questions": {
+  "reaction": {"type": "choice", "instructions": "Which visible reaction should the listener show now? Keep the neutral listening state unless a reaction is clearly natural at this moment.",
+    "criteria": {"confused": "A slightly puzzled look when something said is unclear or surprising.", "idle": "Attentive neutral listening. The default when nothing calls for a visible reaction.", "laugh": "Laugh along when the room is clearly laughing at a joke.", "nod": "Nod in agreement or acknowledgement while someone makes a point.", "smile": "A warm smile or smirk at something mildly funny, pleasant or friendly.", "thinking": "Look aside thoughtfully, as when a question was asked or something needs consideration."}},
+  "addressed": {"type": "noul", "instructions": "Is the latest utterance a question or request directed at Sam personally, so they would be expected to answer or act?"},
+  "question": {"type": "noul", "instructions": "Does the latest utterance ask a question?"},
+  "engagement": {"type": "score", "instructions": "How engaging is the conversation right now?", "criteria": ["Dull, routine or off-topic chatter.", "Ordinary discussion.", "Engaging, important, emotional or lively discussion."]}}}

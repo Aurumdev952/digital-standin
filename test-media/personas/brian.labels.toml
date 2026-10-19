@@ -1,0 +1,5 @@
+# meeting.wav heard by "Brian": thanked by name at 177.5, not asked anything.
+[[event]]
+kind = "name"
+start = 177.0
+end = 178.5

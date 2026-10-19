@@ -1,0 +1,3 @@
+# The plain meeting excerpt. No labelled events: any smile or laugh here is a false positive
+# unless the meeting itself laughed.
+event = []

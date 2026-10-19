@@ -1,0 +1,12 @@
+[project]
+name = "standin-decider"
+version = "0.1.0"
+description = "Unix-socket server that runs pplx-decider for Digital Standin"
+requires-python = ">=3.12,<3.13"
+dependencies = ["pplx-decider[fast]"]
+
+[tool.uv.sources]
+pplx-decider = { path = "../../models/pplx-decider-flash-v1.2/source" }
+
+[tool.uv]
+package = false

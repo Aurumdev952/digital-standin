@@ -1,0 +1,5 @@
+# meeting.wav heard by "Cindy": asked directly at 288.4-289.5 ("what do you think Cindy").
+[[event]]
+kind = "question_to_me"
+start = 287.9
+end = 290.0

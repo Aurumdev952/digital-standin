@@ -1,0 +1,18 @@
+# Talk-show compilation, first 240 s (YouTube -tQWkiltH8s, cut by scripts/fetch-test-media.sh).
+# Ground truth: the video's own [Applause] captions, which mark the audience's laughter-and-applause
+# bursts. Captions do not mark every laugh, so recall is measured against these three only.
+
+[[event]]
+kind = "laughter"
+start = 42.4
+end = 48.5
+
+[[event]]
+kind = "laughter"
+start = 113.5
+end = 120.7
+
+[[event]]
+kind = "laughter"
+start = 132.3
+end = 136.8

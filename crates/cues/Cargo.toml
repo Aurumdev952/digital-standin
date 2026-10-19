@@ -1,0 +1,17 @@
+[package]
+name = "cues"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+tracing.workspace = true
+crossbeam-channel.workspace = true
+audio = { path = "../audio" }
+# The same ONNX Runtime build the speech model uses; a second runtime in-process clashes.
+ort = { version = "=2.0.0-rc.14", features = ["api-28"] }
+realfft = "3"
+earshot = "1"
+
+[dev-dependencies]
+ort = { version = "=2.0.0-rc.14", features = ["api-28"] }

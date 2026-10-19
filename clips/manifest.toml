@@ -1,0 +1,61 @@
+# Each state is something the stand-in can do. `description` is what the decision model reads.
+# Exactly one state is `base`: the loop the player returns to after every one-shot.
+# Clip paths are relative to this file.
+
+[output]
+width = 1280
+height = 720
+fps = 30
+
+[states.idle]
+kind = "loop"
+base = true
+description = "Attentive neutral listening. The default when nothing calls for a visible reaction."
+
+[states.nod]
+kind = "oneshot"
+description = "Nod in agreement or acknowledgement while someone makes a point."
+
+[states.thinking]
+kind = "oneshot"
+description = "Look aside thoughtfully, as when a question was asked or something needs consideration."
+
+[states.smile]
+kind = "oneshot"
+description = "A warm smile or smirk at something mildly funny, pleasant or friendly."
+
+[states.laugh]
+kind = "oneshot"
+description = "Laugh along when the room is clearly laughing at a joke."
+
+[states.confused]
+kind = "oneshot"
+description = "A slightly puzzled look when something said is unclear or surprising."
+
+[[clips]]
+state = "idle"
+file = "real/idle.mp4"
+
+[[clips]]
+state = "idle"
+file = "real/idle_b.mp4"
+
+[[clips]]
+state = "nod"
+file = "real/nod.mp4"
+
+[[clips]]
+state = "thinking"
+file = "real/thinking.mp4"
+
+[[clips]]
+state = "smile"
+file = "real/smile.mp4"
+
+[[clips]]
+state = "laugh"
+file = "real/laugh.mp4"
+
+[[clips]]
+state = "confused"
+file = "real/confused.mp4"

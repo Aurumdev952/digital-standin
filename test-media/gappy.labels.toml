@@ -1,0 +1,6 @@
+# Speech 0-20 s, digital silence 20-60 s, speech 60-80 s, pink noise at about -66 dBFS 80-110 s,
+# then speech 110-130 s cut from meeting-laughs.wav at 75 s, which holds the ESC-50 laugh at 82.51.
+[[event]]
+kind = "laughter"
+start = 117.51
+end = 121.29
