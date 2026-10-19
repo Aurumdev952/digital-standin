@@ -44,6 +44,7 @@ Measured on an RTX 5090 Laptop GPU on 2026-10-19, with the 160 ms speech model. 
 | Live CPU, nothing playing / speech playing | 6% / 45% of one core (35% with the 560 ms model); GPU load about 12% during speech |
 | Camera in Chrome | 1280×720, 29.95 to 30.0 fps, motion in 99.8% of frames |
 | Camera in OBS Studio 30.0.2 | Captured `/dev/video10` as 1280×720 YUYV at 30 fps; recorded 1037 frames in 35 s showing the stand-in |
+| 43-minute live soak through muted speakers, default settings | 0 late frames in 77,818; main process 1067 to 1077 MB; speech worker recycled at 20 and 40 minutes, each generation 1.24 to 1.29 GB; 218 reactions, 5 alerts, no errors |
 | 43-minute live soak through muted speakers, before the speech worker | 5 late frames in 77,813 (while replays and builds also ran), GPU memory flat, process memory +2.0 MB/min |
 | Memory growth by component, 12 minutes each | Before the speech worker: file audio without camera, PipeWire capture without camera, and file audio with camera all grew 1 to 2 MB/min, so the growth was the speech model's, not capture's or the camera's. |
 | Memory with the recycled speech worker, 12 minutes, recycling every 2 minutes | Main process 1224 to 1228 MB. Worker replaced 3 times without errors; each generation 1.23 to 1.26 GB. 0 late frames in 22,123. |
