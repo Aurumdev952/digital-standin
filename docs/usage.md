@@ -95,5 +95,5 @@ recycle_minutes = 20.0            # speech after which a fresh recognizer proces
 
 - **Meet does not list the camera.** Chrome lists it only while something writes to it. Start the stand-in first, then reload the Meet tab. Check that `v4l2-ctl --list-devices` shows "Digital Standin".
 - **`make run` reports too little GPU memory.** Another process holds the GPU, often vLLM. `nvidia-smi` lists it.
-- **No transcript.** Run `make listen` while audio plays and check that `listen.wav` has sound. The stand-in follows your default output device, so pick it in the sound settings.
+- **No transcript.** The stand-in hears only the system's default output device. In Meet, set **Settings > Audio > Speakers** to **System default**, or to the device your sound settings use. `make doctor` names the device it listens to. To check, run `make listen` while audio plays and confirm `listen.wav` has sound.
 - **The decider says "not ready yet".** It loads for about 20 s after start. Its log is `/tmp/digital-standin-decider.log`.
