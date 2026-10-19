@@ -44,7 +44,7 @@ impl Sidecar {
         let _ = ctrlc::set_handler(move || {
             tracing::info!("stopping the decider sidecar");
             let _ = nix::sys::signal::killpg(nix::unistd::Pid::from_raw(group), nix::sys::signal::Signal::SIGTERM);
-            std::process::exit(130);
+            crate::exit_now(130);
         });
         Ok(Self { child: Some(child), socket, log })
     }
@@ -58,12 +58,13 @@ impl Sidecar {
 
 impl Sidecar {
     /// Stops the sidecar if this process started it; one that was already running is left alone.
+    /// Signals the whole group and returns at once; Python takes seconds to release CUDA and needs
+    /// no help from us to finish.
     pub fn stop(&mut self) {
-        if let Some(mut c) = self.child.take() {
+        if let Some(c) = self.child.take() {
             tracing::info!("stopping the decider sidecar");
             let group = nix::unistd::Pid::from_raw(c.id() as i32);
             let _ = nix::sys::signal::killpg(group, nix::sys::signal::Signal::SIGTERM);
-            let _ = c.wait();
         }
     }
 }

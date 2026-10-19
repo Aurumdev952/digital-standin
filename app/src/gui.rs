@@ -74,8 +74,7 @@ impl Panel {
 impl eframe::App for Panel {
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
         self.live.shutdown();
-        // Model threads are mid-inference; tearing the runtime down under them only logs errors.
-        std::process::exit(0);
+        crate::exit_now(0);
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {

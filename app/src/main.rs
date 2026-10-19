@@ -131,6 +131,16 @@ fn main() -> Result<()> {
     }
 }
 
+/// Exits without running C++ static destructors. ONNX Runtime and CUDA tear down for seconds
+/// under model threads that are still running, and log errors doing it; the OS frees all of it.
+pub fn exit_now(code: i32) -> ! {
+    use std::io::Write;
+    let _ = std::io::stdout().flush();
+    let _ = std::io::stderr().flush();
+    // SAFETY: _exit ends the process immediately; nothing runs after it.
+    unsafe { nix::libc::_exit(code) }
+}
+
 fn headless_run(mut live: Live, seconds: Option<f64>) -> Result<()> {
     let start = std::time::Instant::now();
     let mut printed = 0u64;
@@ -153,8 +163,7 @@ fn headless_run(mut live: Live, seconds: Option<f64>) -> Result<()> {
                 println!("last transcript line: {}", last.1);
             }
             live.shutdown();
-            // Model threads are mid-inference; tearing the runtime down under them only logs errors.
-            std::process::exit(0);
+            exit_now(0);
         }
     }
 }

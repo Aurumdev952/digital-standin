@@ -120,7 +120,7 @@ impl Live {
         Ok(Self { telemetry, engine, lib, tx, sidecar, _ort: env })
     }
 
-    /// Stops what must not outlive the app. Call before `process::exit`, which skips destructors.
+    /// Stops what must not outlive the app. Call before `exit_now`, which skips destructors.
     pub fn shutdown(&mut self) {
         if let Some(s) = self.sidecar.as_mut() {
             s.stop();
