@@ -2,7 +2,7 @@
 .DEFAULT_GOAL := help
 BIN := target/release/standin
 
-.PHONY: help setup asr-160 build run run-headless run-file demo play listen doctor test eval media chrome-check soak stop clean
+.PHONY: cpu-check help setup asr-160 build run run-headless run-file demo play listen doctor test eval media chrome-check soak stop clean
 
 help: ## List the targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-14s %s\n", $$1, $$2}'
@@ -10,7 +10,7 @@ help: ## List the targets
 setup: ## One-time setup: packages, camera, models, sidecar, build, clips
 	scripts/setup.sh
 
-asr-160: ## Optional: build the 160 ms speech model (words arrive about 0.16 s sooner)
+asr-160: ## Build the 160 ms speech model (make setup does this unless SKIP_ASR_160=1)
 	scripts/export-asr-160.sh
 
 build: ## Build the release binary
@@ -46,6 +46,9 @@ media: ## Download the public test recordings and build the labelled mixes
 
 eval: build ## Replay every labelled recording and score it (writes out/eval-summary.txt)
 	scripts/eval.sh
+
+cpu-check: build ## Live CPU and GPU load with nothing playing, then with speech through the muted speakers
+	scripts/cpu-check.sh
 
 chrome-check: ## Open the camera in headless Chrome like Meet does (needs the stand-in running)
 	node scripts/chrome-camera-check.mjs 10

@@ -23,6 +23,9 @@ scripts/setup-vcam.sh
 step "Models (about 11 GB; needs a Hugging Face token with access to perplexity-ai/pplx-decider-flash-v1.2)"
 scripts/fetch-models.sh
 
+step "160 ms speech model (set SKIP_ASR_160=1 to keep the published 560 ms one)"
+if [ "${SKIP_ASR_160:-0}" = 1 ]; then echo "skipped"; else scripts/export-asr-160.sh; fi
+
 step "Decision-model environment"
 (cd sidecar/decider && uv sync)
 

@@ -26,7 +26,7 @@ cd digital-standin
 make setup
 ```
 
-`make setup` installs the system packages (it asks for `sudo`), loads the virtual camera, downloads about 11 GB of models, prepares the decision model's Python environment, builds the app, and runs `standin doctor`. Every line of the doctor output should read `ok`.
+`make setup` installs the system packages (it asks for `sudo`), loads the virtual camera, downloads about 11 GB of models, builds the low-latency speech model, prepares the decision model's Python environment, builds the app, and runs `standin doctor`. Every line of the doctor output should read `ok`. The speech-model step installs NVIDIA NeMo (about 8 GB) and takes a few minutes; `SKIP_ASR_160=1 make setup` skips it and keeps the published model, which delivers words about 0.16 s later.
 
 ## Run
 
