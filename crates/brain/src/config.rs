@@ -87,12 +87,21 @@ pub struct Settings {
     pub asr: AsrSettings,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct AsrSettings {
     /// Speech model directory. Unset means the 160 ms export when present, else the published
     /// 560 ms one.
     pub model: Option<PathBuf>,
+    /// Minutes of speech after which a fresh recognizer process takes over, releasing the memory
+    /// the CUDA driver accumulates.
+    pub recycle_minutes: f64,
+}
+
+impl Default for AsrSettings {
+    fn default() -> Self {
+        Self { model: None, recycle_minutes: 20.0 }
+    }
 }
 
 const ASR_160: &str = "models/nemotron-160ms";

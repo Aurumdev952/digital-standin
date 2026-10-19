@@ -77,6 +77,12 @@ enum Cmd {
     },
     /// Check the camera device, audio capture, models, decider and GPU.
     Doctor,
+    /// Internal: the speech-recognition worker process.
+    #[command(hide = true)]
+    AsrWorker {
+        #[arg(long)]
+        model: PathBuf,
+    },
 }
 
 fn main() -> Result<()> {
@@ -128,6 +134,7 @@ fn main() -> Result<()> {
         Cmd::Play => play(&root.join(&settings.video.manifest), &settings.video.device, settings.video.blend_frames),
         Cmd::Listen { seconds, out } => listen(seconds, &out),
         Cmd::Doctor => doctor::run(&root, &settings),
+        Cmd::AsrWorker { model } => asr::worker::serve(&model, asr::Device::Cuda),
     }
 }
 

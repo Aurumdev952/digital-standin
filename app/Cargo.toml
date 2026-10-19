@@ -13,7 +13,7 @@ audio = { path = "../crates/audio" }
 crossbeam-channel.workspace = true
 hound = "3"
 ctrlc = { version = "3", features = ["termination"] }
-nix = { version = "0.31", features = ["signal", "resource", "time"] }
+nix = { version = "0.31", features = ["signal"] }
 asr = { path = "../crates/asr" }
 cues = { path = "../crates/cues" }
 brain = { path = "../crates/brain" }

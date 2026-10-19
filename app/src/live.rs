@@ -66,8 +66,6 @@ impl Live {
 
         let models = opts.root.join("models");
         let env = asr::environment()?;
-        let rec = asr::Recognizer::load(&env, &s.asr.resolve(&opts.root), asr::Device::Cuda)?;
-        tracing::info!("speech model chunk {:.0} ms", rec.chunk_secs() * 1000.0);
         let det = cues::CueDetector::load(&env, &models)?;
         tracing::info!("models loaded in {:.2?}", t0.elapsed());
 
@@ -78,7 +76,13 @@ impl Live {
         let (cues_tx, cues_rx) = crossbeam_channel::unbounded();
         let gate = cues::Gate::default();
         let gate_stats = gate.stats.clone();
-        asr::spawn(rec, asr_rx, words_tx);
+        let worker = asr::worker::WorkerConfig {
+            program: std::env::current_exe()?,
+            args: vec!["asr-worker".into(), "--model".into(), s.asr.resolve(&opts.root).into_os_string()],
+            recycle_after_secs: s.asr.recycle_minutes * 60.0,
+        };
+        let (_, worker_pids) = asr::worker::spawn(worker, asr_rx, words_tx)?;
+        tracing::info!("speech worker ready after {:.2?}", t0.elapsed());
         cues::spawn(det, gate, cue_rx, cues_tx, asr_tx);
 
         let tap = Arc::new(Tap::default());
@@ -116,7 +120,7 @@ impl Live {
         };
         std::thread::Builder::new().name("brain".into()).spawn(move || ctx.run())?;
 
-        spawn_resource_monitor(telemetry.clone());
+        spawn_resource_monitor(telemetry.clone(), worker_pids);
         Ok(Self { telemetry, engine, lib, tx, sidecar, _ort: env })
     }
 
@@ -135,20 +139,29 @@ impl Live {
     }
 }
 
-/// Samples this process's CPU and memory and the GPU's memory and load every 2 s.
-fn spawn_resource_monitor(telemetry: Arc<Mutex<Telemetry>>) {
+/// CPU seconds used so far by a process (`/proc/<pid>/stat` utime + stime, in 100 Hz ticks).
+fn cpu_secs(pid: &str) -> Option<f64> {
+    let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
+    let fields: Vec<&str> = stat.rsplit_once(')')?.1.split_whitespace().collect();
+    Some((fields.get(11)?.parse::<f64>().ok()? + fields.get(12)?.parse::<f64>().ok()?) / 100.0)
+}
+
+fn rss_mb(pid: &str) -> Option<f64> {
+    let statm = std::fs::read_to_string(format!("/proc/{pid}/statm")).ok()?;
+    Some(statm.split_whitespace().nth(1)?.parse::<f64>().ok()? * 4096.0 / 1e6)
+}
+
+/// Samples the app's CPU and memory, its speech workers' included, and the GPU every 2 s.
+fn spawn_resource_monitor(telemetry: Arc<Mutex<Telemetry>>, workers: asr::worker::WorkerPids) {
     std::thread::Builder::new()
         .name("resources".into())
         .spawn(move || {
-            let cpu_secs = || {
-                let usage = nix::sys::resource::getrusage(nix::sys::resource::UsageWho::RUSAGE_SELF).ok()?;
-                let tv = |t: nix::sys::time::TimeVal| t.tv_sec() as f64 + t.tv_usec() as f64 / 1e6;
-                Some(tv(usage.user_time()) + tv(usage.system_time()))
+            let pids = || {
+                let mut p = vec!["self".to_string()];
+                p.extend(workers.lock().map(|w| w.iter().map(u32::to_string).collect::<Vec<_>>()).unwrap_or_default());
+                p
             };
-            let rss_mb = || {
-                let statm = std::fs::read_to_string("/proc/self/statm").ok()?;
-                Some(statm.split_whitespace().nth(1)?.parse::<f64>().ok()? * 4096.0 / 1e6)
-            };
+            let total = |f: fn(&str) -> Option<f64>| -> f64 { pids().iter().filter_map(|p| f(p)).sum() };
             let gpu = || {
                 let out = std::process::Command::new("nvidia-smi")
                     .args(["--query-gpu=memory.used,utilization.gpu", "--format=csv,noheader,nounits"])
@@ -158,13 +171,14 @@ fn spawn_resource_monitor(telemetry: Arc<Mutex<Telemetry>>) {
                 let mut it = line.lines().next()?.split(',').map(|v| v.trim().parse::<f32>().ok());
                 Some((it.next()??, it.next()??))
             };
-            let mut last = (Instant::now(), cpu_secs().unwrap_or(0.0));
+            let mut last = (Instant::now(), total(cpu_secs));
             loop {
                 std::thread::sleep(Duration::from_secs(2));
-                let (now_i, cpu) = (Instant::now(), cpu_secs().unwrap_or(0.0));
-                let pct = (cpu - last.1) / now_i.duration_since(last.0).as_secs_f64() * 100.0;
+                let (now_i, cpu) = (Instant::now(), total(cpu_secs));
+                // A recycled worker takes its CPU time with it, so the difference can dip below zero.
+                let pct = ((cpu - last.1) / now_i.duration_since(last.0).as_secs_f64() * 100.0).max(0.0);
                 last = (now_i, cpu);
-                let rss = rss_mb();
+                let rss = Some(total(rss_mb));
                 let g = gpu();
                 let mut t = telemetry.lock();
                 let now = t.now;

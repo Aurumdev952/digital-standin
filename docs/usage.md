@@ -82,6 +82,7 @@ manifest = "clips/manifest.toml"
 
 [asr]
 model = "models/nemotron-160ms"   # unset: the 160 ms export if built, else the 560 ms one
+recycle_minutes = 20.0            # speech after which a fresh recognizer process takes over
 ```
 
 ## Clips

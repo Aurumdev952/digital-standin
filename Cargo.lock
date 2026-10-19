@@ -173,6 +173,8 @@ dependencies = [
  "crossbeam-channel",
  "cues",
  "parakeet-rs",
+ "serde",
+ "serde_json",
  "tracing",
 ]
 

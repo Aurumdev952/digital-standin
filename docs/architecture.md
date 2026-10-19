@@ -18,7 +18,7 @@ Every stage runs on its own thread and hands data on through channels. A slow de
 |---|---|
 | `crates/audio` | Captures the default sink's monitor through PipeWire as 16 kHz mono, and follows the default sink when you switch devices. Fans each block out to consumers. |
 | `crates/cues` | Earshot voice activity, the CED-small AudioSet tagger for laughter and applause, and the `Gate` that passes only speech on to recognition. |
-| `crates/asr` | Streams audio through `nvidia/nemotron-speech-streaming-en-0.6b` with `parakeet-rs` on ONNX Runtime CUDA, in 160 ms chunks (or 560 ms with the published export). |
+| `crates/asr` | Streams audio through `nvidia/nemotron-speech-streaming-en-0.6b` with `parakeet-rs` on ONNX Runtime CUDA, in 160 ms chunks (or 560 ms with the published export). Live, it runs in a worker process (`standin asr-worker`) that is replaced every 20 minutes of speech. |
 | `crates/brain` | The decision policy: the rolling transcript, reflexes, decision-model requests, the arbiter, and name matching. It is driven by an explicit clock, so live runs and replays use the same code. |
 | `crates/video` | Clip manifest, decoding into RAM, the playback state machine, crossfades, and the v4l2loopback writer. |
 | `app` | The `standin` binary: control panel, headless mode, replay and scoring, doctor, alerts, and sidecar management. |
@@ -51,6 +51,7 @@ The cue thread's voice detector gates speech recognition. It keeps 0.6 s of pre-
 - **CED-small instead of CED-mini.** On 12 laughs mixed into a meeting, CED-small caught 12 with no false episodes in 5 minutes of plain meeting. CED-mini caught 11, with 0.6 false episodes a minute.
 - **160 ms recognition chunks.** The published ONNX export fixes 560 ms chunks. `scripts/export-asr-160.sh` re-exports NVIDIA's checkpoint with a right attention context of 1. On the test meeting, words arrived a median 0.16 s sooner (p90 0.40 s), and 98% of the words were identical, for about 2.7 times the GPU work (21 ms per 160 ms chunk).
 - **The decision model's reference path.** The packed fast path pads short requests to 2048 tokens. It measured 315 ms against 122 ms p50.
+- **A recyclable speech worker.** The CUDA driver keeps about 2 MB a minute for the speech model's kernel launches, and releases it only when the process exits. Recognition therefore runs in a child process. After `recycle_minutes` of speech, a replacement loads in the background and takes over where speech resumes after a pause, and the old one flushes its last words and exits. The main process stays flat, and each worker is retired before it has grown 40 MB.
 - **A Python sidecar.** The decision model needs its own package, with noncausal attention and per-question readouts. A separate process also means a crash there never stops the camera.
 - **v4l2loopback with `exclusive_caps=1`.** Chrome lists a loopback device only with exclusive caps. Chrome's PipeWire camera support is still behind a flag.
 
@@ -59,4 +60,3 @@ The cue thread's voice detector gates speech recognition. It keeps 0.6 s of pre-
 - **Recognition latency.** With 160 ms chunks, words reach the brain about 0.2 to 0.5 s after they are spoken. With `SKIP_ASR_160=1`, the published 560 ms export adds about 0.16 s more. Laughter reactions do not depend on either.
 - **No speaker labels.** The transcript doesn't say who spoke. The decision model judges "addressed to you" from wording and your name, so set your name.
 - **Ghosting.** Crossfading between clips with different head positions shows a faint double outline. Clips that start and end on the neutral pose avoid it.
-- **Memory growth.** The process grows about 2 MB per minute of meeting, about 120 MB per hour. heaptrack places it inside NVIDIA's driver during kernel launches for the speech model, and runs with and without PipeWire capture and the camera writer grow alike. GPU memory stays flat.

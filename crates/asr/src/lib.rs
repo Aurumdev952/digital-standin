@@ -1,19 +1,19 @@
 //! Streaming speech-to-text over the meeting audio with NVIDIA Nemotron (cache-aware FastConformer).
 
 use std::path::Path;
-use std::thread::JoinHandle;
 use std::time::Instant;
 
 use anyhow::{Context, Result};
 use audio::SAMPLE_RATE;
 use cues::Feed;
-use crossbeam_channel::{Receiver, Sender};
 pub use parakeet_rs::ort::environment::Environment;
+
+pub mod worker;
 use parakeet_rs::{ExecutionConfig, ExecutionProvider, Nemotron};
 
 /// Newly recognised text. `text` continues the previous `Words` and carries its own leading
 /// space when it starts a new word.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Words {
     pub text: String,
     /// Stream time, in seconds, of the end of the audio that produced this text.
@@ -98,27 +98,4 @@ impl Recognizer {
 /// refuses to create a second one even after the first is dropped.
 pub fn environment() -> Result<Environment> {
     Ok(parakeet_rs::ort::init().with_name("digital-standin").build()?)
-}
-
-/// Runs the recognizer on its own thread until the audio channel closes.
-pub fn spawn(mut rec: Recognizer, feeds: Receiver<Feed>, out: Sender<Words>) -> JoinHandle<()> {
-    std::thread::Builder::new()
-        .name("asr".into())
-        .spawn(move || {
-            for feed in feeds {
-                match rec.apply(feed) {
-                    Ok(Some(w)) => {
-                        if out.send(w).is_err() {
-                            return;
-                        }
-                    }
-                    Ok(None) => {}
-                    Err(e) => tracing::error!("asr: {e:#}"),
-                }
-            }
-            if let Ok(rest) = rec.flush() {
-                rest.into_iter().for_each(|w| drop(out.send(w)));
-            }
-        })
-        .expect("spawn asr thread")
 }
