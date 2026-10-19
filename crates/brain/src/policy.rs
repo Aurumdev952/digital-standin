@@ -194,7 +194,8 @@ impl Brain {
         };
         if let Some(state) = laugh_state {
             let reason = format!("laughter {laughter:.2}, applause {applause:.2}");
-            let delay = self.rng.random_range(0.15..0.4);
+            // Detection already lags laughter onset by about 0.7 s, which is a human-like delay.
+            let delay = self.rng.random_range(0.0..0.1);
             self.schedule(now, delay, Reaction { state, urgent: true, intensity: None, source: Source::Laughter, reason });
         }
         self.fire_due(now)

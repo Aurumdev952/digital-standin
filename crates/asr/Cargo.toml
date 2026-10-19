@@ -12,3 +12,6 @@ cues = { path = "../cues" }
 parakeet-rs = { version = "0.4", default-features = false, features = ["cuda", "ort-defaults", "api-28"] }
 serde.workspace = true
 serde_json.workspace = true
+
+[dev-dependencies]
+parakeet-rs = { version = "0.4", default-features = false, features = ["cuda", "ort-defaults", "api-28"] }

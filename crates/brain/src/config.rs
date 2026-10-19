@@ -55,7 +55,7 @@ impl Default for BrainConfig {
         Self {
             aliases: Vec::new(),
             disabled: Vec::new(),
-            laugh_threshold: 0.15,
+            laugh_threshold: 0.10,
             big_laugh: 0.45,
             applause_threshold: 0.5,
             end_of_utterance_secs: 0.7,

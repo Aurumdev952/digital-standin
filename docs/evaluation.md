@@ -32,13 +32,14 @@ Measured on an RTX 5090 Laptop GPU on 2026-10-19, with the 160 ms speech model. 
 
 | Check | Result |
 |---|---|
-| Laughter, 12 laughs mixed into a meeting | 12/12 caught, median 1.2 s after onset, no smiles outside the laughs |
+| Laughter, 12 laughs mixed into a meeting | 12/12 caught, median reaction 0.59 s after onset, no smiles outside the laughs |
 | Talk-show audience reactions (caption labels) | 3/3 |
 | Laughter-free meeting, 5 min | No smiles or laughs |
 | Persona Cindy, asked "what do you think Cindy" | Alerted, showed `thinking` |
 | Persona Brian, thanked by name | Alerted, no `thinking` |
 | Persona Sam, never mentioned | No alerts |
-| Decision model latency, alone on the GPU | 107 to 123 ms p50, 121 to 151 ms p95 across the scenarios, with the transcript capped at 120 words (124 to 212 ms p50 uncapped) |
+| Decision model latency, alone on the GPU | 104 to 122 ms p50, 120 to 156 ms p95 across the scenarios, with the transcript capped at 120 words (124 to 212 ms p50 uncapped) |
+| Audio to recognised word, 160 ms model | Median 181 ms after the word ends, p90 421 ms, 85% under 400 ms, against Parakeet TDT word timings (`scripts/word-latency.py`); 347 ms median with the 560 ms model |
 | Decision latency against prompt length | About 0.2 ms per token: 104 ms at 530 tokens, 297 ms at 1,482. `make decider-kernel` makes it 5 to 11% faster |
 | Speech recognition, 160 ms model | 21 ms GPU time per 160 ms chunk, 6.3× faster than real time; words a median 0.16 s sooner than the 560 ms model, 98% identical words |
 | Silence gate, recording half silence and noise | Recognition ran on 49% of the audio, transcript kept 99% of the words |

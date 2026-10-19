@@ -119,21 +119,22 @@ pub struct CueDetector {
 }
 
 impl CueDetector {
-    /// The tuned configuration: CED-small over a 1 s window every 125 ms. On 12 laughs mixed into a
-    /// meeting (`scripts/make-laugh-mix.py`) it caught all 12 a median 0.92 s after onset, with no
-    /// false episode in 5 minutes of plain meeting audio, where CED-mini caught 11 with 0.6/min.
+    /// The tuned configuration: CED-small over a 2 s window every 125 ms. On 12 laughs mixed into a
+    /// meeting (`scripts/make-laugh-mix.py`), at a 0.10 threshold it caught all 12 a median 0.74 s
+    /// after onset with no false episode in 5 minutes of plain meeting audio. A 1 s window needed
+    /// 0.92 s; CED-mini caught 11 with 0.6 false episodes a minute.
     ///
     /// `env` must be the process's single ONNX Runtime environment, shared with the speech model.
     pub fn load(env: &Environment, models: &Path) -> Result<Self> {
-        Ok(Self::new(Vad::default(), Tagger::load(env, &models.join("ced-small/model.int8.onnx"))?, 0.125))
+        Ok(Self::new(Vad::default(), Tagger::load(env, &models.join("ced-small/model.int8.onnx"))?, 2.0, 0.125))
     }
 
-    pub fn new(vad: Vad, tagger: Tagger, hop_secs: f64) -> Self {
+    pub fn new(vad: Vad, tagger: Tagger, window_secs: f64, hop_secs: f64) -> Self {
         Self {
             vad,
             tagger,
             window: VecDeque::new(),
-            window_len: SAMPLE_RATE as usize,
+            window_len: (window_secs * SAMPLE_RATE as f64) as usize,
             hop: (hop_secs * SAMPLE_RATE as f64) as usize,
             since_hop: 0,
             fed: 0,
@@ -151,7 +152,7 @@ impl CueDetector {
         (self.tagged, self.skipped)
     }
 
-    /// Returns one [`Cues`] per completed hop over a 1 s window.
+    /// Returns one [`Cues`] per completed hop over the analysis window.
     pub fn feed(&mut self, samples: &[f32]) -> Result<Vec<Cues>> {
         let mut out = Vec::new();
         for chunk in samples.chunks(self.hop) {

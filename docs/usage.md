@@ -57,7 +57,7 @@ Every value is optional. A missing file means defaults.
 [brain]
 aliases = ["Sam", "Samuel"]   # your names, for alerts
 disabled = ["confused"]       # reactions never chosen automatically
-laugh_threshold = 0.15        # laughter score that triggers a smile
+laugh_threshold = 0.10        # laughter score that triggers a smile
 big_laugh = 0.45              # laughter score that triggers a laugh
 applause_threshold = 0.5
 reaction_threshold = 0.45     # decision-model probability needed to show a reaction

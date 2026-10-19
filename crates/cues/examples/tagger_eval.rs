@@ -37,7 +37,7 @@ fn main() -> anyhow::Result<()> {
     for (name, classes) in [("adult", LAUGH_ADULT), ("incl-baby", LAUGH_ALL)] {
         let score = |p: &Vec<f32>| classes.iter().map(|&i| p[i]).fold(0.0f32, f32::max);
         let mut rows = BTreeMap::new();
-        for th in [0.08f32, 0.1, 0.15, 0.2, 0.25, 0.3] {
+        for th in [0.06f32, 0.08, 0.1, 0.12, 0.15, 0.2] {
             let mut lat = Vec::new();
             for &(s, e) in &labels {
                 if let Some(x) = mixed.iter().find(|(t, p)| *t >= s && *t <= e + 1.5 && score(p) >= th) {

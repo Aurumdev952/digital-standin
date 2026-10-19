@@ -50,6 +50,7 @@ The default clips come from a free stock video. To use clips of yourself, follow
 - [Usage](docs/usage.md): commands, the control panel, and the settings file.
 - [How it works](docs/architecture.md): the pipeline, design decisions, and known limits.
 - [Evaluation](docs/evaluation.md): tests, scoring tools, and measured results.
+- [Plan against result](docs/plan-vs-result.md): each original target, what was measured, and why anything differs.
 - [Record your clips](docs/recording-guide.md): how to film and register your own reactions.
 
 ## License

@@ -26,7 +26,7 @@ Every stage runs on its own thread and hands data on through channels. A slow de
 
 ## Decisions
 
-**Reflexes.** Laughter above `laugh_threshold` triggers a smile, and above `big_laugh` a laugh, 0.15 to 0.4 s later. While someone keeps talking, a soft nod follows every 7 to 16 s; lively talk shortens that interval and dull talk stretches it. A name match on your aliases raises an alert at once.
+**Reflexes.** Laughter above `laugh_threshold` triggers a smile, and above `big_laugh` a laugh, within 0.1 s. Detection already lags laughter onset by about 0.7 s, so no further delay is added. While someone keeps talking, a soft nod follows every 7 to 16 s; lively talk shortens that interval and dull talk stretches it. A name match on your aliases raises an alert at once.
 
 **The decision model.** When an utterance ends (0.7 s of silence), and every 2 s during long speech, the brain sends one request with four questions:
 - `reaction`: which state fits, chosen from the manifest's state descriptions.
@@ -48,7 +48,7 @@ The cue thread's voice detector gates speech recognition. It keeps 0.6 s of pre-
 
 - **One ONNX Runtime per process.** sherpa-onnx bundles its own ONNX Runtime, which replaced the CUDA-enabled one at load time. CED and voice activity therefore run through the same `ort` build as the speech model, sharing one environment. `tests/parity.rs` checks that our CED frontend matches sherpa-onnx's.
 - **Earshot instead of Silero.** Running Silero through ONNX Runtime 31 times a second grew the process by about 0.55 KB per call, and no session drop released it (`crates/cues/examples/ortgrowth.rs`). Earshot is pure Rust and matched Silero as a gate.
-- **CED-small instead of CED-mini.** On 12 laughs mixed into a meeting, CED-small caught 12 with no false episodes in 5 minutes of plain meeting. CED-mini caught 11, with 0.6 false episodes a minute.
+- **CED-small over a 2 s window instead of CED-mini.** On 12 laughs mixed into a meeting, CED-small with a 2 s window and a 0.10 threshold caught all 12 a median 0.74 s after onset, with no false episodes in 5 minutes of plain meeting. A 1 s window needed 0.92 s. CED-mini caught 11, with 0.6 false episodes a minute.
 - **160 ms recognition chunks.** The published ONNX export fixes 560 ms chunks. `scripts/export-asr-160.sh` re-exports NVIDIA's checkpoint with a right attention context of 1. On the test meeting, words arrived a median 0.16 s sooner (p90 0.40 s), and 98% of the words were identical, for about 2.7 times the GPU work (21 ms per 160 ms chunk).
 - **A 120-word context.** The decision model's latency grows about 0.2 ms per prompt token, and dense talk filled 60 s of transcript with over 1,000 tokens (up to 212 ms p50). Sending the newest 120 words keeps it at 107 to 123 ms p50, with the same scores on every labelled recording.
 - **The decision model's reference path.** The packed fast path pads short requests to 2048 tokens. It measured 315 ms against 122 ms p50.

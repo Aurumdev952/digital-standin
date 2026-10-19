@@ -26,6 +26,7 @@ fn matches_sherpa_onnx_reference() {
     let mut det = cues::CueDetector::new(
         cues::Vad::default(),
         cues::Tagger::load(&env, &models.join("ced-mini/model.int8.onnx")).unwrap(),
+        1.0,
         0.25,
     );
     let samples = audio::decode_file(&audio).unwrap();
