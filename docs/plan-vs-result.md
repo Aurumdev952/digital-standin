@@ -17,6 +17,13 @@ This page compares each success criterion in the original build plan with what w
 | One-hour run | Memory, GPU memory and frame drops checked | Two 43-minute runs: 0 late frames; main process flat (1067 to 1078 MB); GPU memory flat; the speech worker recycled every 20 minutes | Met |
 | Switch to your own clips by changing only the manifest | Manifest only | `clips/manifest.toml` and `clips/manifest-synthetic.toml` swap with one setting | Met |
 
+## Decisions taken
+
+On 2026-10-19 the owner accepted both near-misses as they stand:
+
+- Laughter keeps the 0.10 threshold: 0.56 s median, no stray smiles. A lower threshold was measured not to react sooner.
+- Speech recognition keeps Nemotron with 160 ms chunks: 181 ms median word latency, with the slowest words over 400 ms.
+
 ## Where the build differs from the plan, and why
 
 - **Laughter is 60 ms slower than planned.** The tagger has to hear enough laughter to recognise it, about half a second, so the reaction now follows detection with no added delay. Checking more often (a 62.5 ms hop) did not detect sooner. Lower thresholds (0.06 and 0.08) did not either: through the whole pipeline they reacted at 0.59 and 0.66 s and added stray smiles to the laughter-free meeting. So the default stays at 0.10, the fastest setting measured that adds no stray smiles.
