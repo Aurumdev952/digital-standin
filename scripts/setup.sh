@@ -7,8 +7,11 @@ cd "$(dirname "$0")/.."
 step() { printf '\n==> %s\n' "$*"; }
 
 step "System packages (needs sudo)"
-PKGS=(libpipewire-0.3-dev libspa-0.2-dev libclang-dev v4l2loopback-dkms v4l-utils ffmpeg pkg-config)
+PKGS=(libpipewire-0.3-dev libspa-0.2-dev libclang-dev v4l-utils ffmpeg pkg-config)
 dpkg -s libcudnn9-cuda-13 >/dev/null 2>&1 || PKGS+=(libcudnn9-cuda-13)
+# Many kernels ship v4l2loopback already; the DKMS package is only a fallback, and the distribution's
+# version can fail to build against newer kernels.
+modinfo v4l2loopback >/dev/null 2>&1 || PKGS+=(v4l2loopback-dkms)
 MISSING=()
 for p in "${PKGS[@]}"; do dpkg -s "$p" >/dev/null 2>&1 || MISSING+=("$p"); done
 if [ ${#MISSING[@]} -gt 0 ]; then sudo apt-get install -y "${MISSING[@]}"; else echo "all present"; fi

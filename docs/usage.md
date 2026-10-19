@@ -64,6 +64,7 @@ alert_threshold = 0.8         # probability that a question was aimed at you
 end_of_utterance_secs = 0.7   # pause that ends an utterance and triggers a decision
 decide_every_secs = 2.0       # decision rate during long speech
 context_secs = 60.0           # transcript the decision model sees
+context_words = 120           # newest words of it at most (bounds decision latency)
 nod_min_secs = 7.0            # back-channel nod interval range
 nod_max_secs = 16.0
 delay_min_secs = 0.25         # human-like delay before a reaction

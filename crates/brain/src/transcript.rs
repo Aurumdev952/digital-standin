@@ -54,12 +54,27 @@ impl Transcript {
 
     /// Utterances that ended within `secs` of `now`, oldest first, each prefixed with its age.
     pub fn window(&self, now: f64, secs: f64) -> String {
-        self.items
-            .iter()
-            .filter(|u| now - u.end <= secs)
-            .map(|u| format!("[{:>3.0}s ago] {}", (now - u.end).max(0.0), u.text.trim()))
-            .collect::<Vec<_>>()
-            .join("\n")
+        self.window_words(now, secs, usize::MAX)
+    }
+
+    /// Like [`Self::window`], keeping only the newest `max_words` words; the oldest utterance kept
+    /// loses its beginning.
+    pub fn window_words(&self, now: f64, secs: f64, max_words: usize) -> String {
+        let mut budget = max_words;
+        let mut lines = Vec::new();
+        for u in self.items.iter().rev().filter(|u| now - u.end <= secs) {
+            if budget == 0 {
+                break;
+            }
+            let words: Vec<&str> = u.text.split_whitespace().collect();
+            let keep = words.len().min(budget);
+            budget -= keep;
+            let text = words[words.len() - keep..].join(" ");
+            let text = if keep < words.len() { format!("… {text}") } else { text };
+            lines.push(format!("[{:>3.0}s ago] {text}", (now - u.end).max(0.0)));
+        }
+        lines.reverse();
+        lines.join("\n")
     }
 }
 
@@ -79,6 +94,17 @@ mod tests {
         t.push(4.0, " Next");
         assert_eq!(t.open().unwrap().text, "Next");
         assert_eq!(t.window(4.0, 60.0), "[  2s ago] So what do you think?\n[  0s ago] Next");
+    }
+
+    #[test]
+    fn word_budget_keeps_the_newest_words() {
+        let mut t = Transcript::default();
+        t.push(1.0, "one two three");
+        t.close_if_paused(5.0, false, 0.5);
+        t.push(6.0, "four five");
+        assert_eq!(t.window_words(6.0, 60.0, 3), "[  5s ago] … three\n[  0s ago] four five");
+        assert_eq!(t.window_words(6.0, 60.0, 2), "[  0s ago] four five");
+        assert_eq!(t.window_words(6.0, 60.0, 100), t.window(6.0, 60.0));
     }
 
     #[test]

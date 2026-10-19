@@ -24,6 +24,9 @@ pub struct BrainConfig {
     pub decide_every_secs: f64,
     /// Seconds of transcript the decider sees.
     pub context_secs: f64,
+    /// At most this many of the newest transcript words go to the decider. Its latency grows by
+    /// about 0.2 ms per token, so this bounds it in fast, dense conversation.
+    pub context_words: usize,
 
     /// Back-channel nods during continuous speech, at a random interval in this range.
     /// High engagement shortens it, low engagement stretches it.
@@ -58,6 +61,7 @@ impl Default for BrainConfig {
             end_of_utterance_secs: 0.7,
             decide_every_secs: 2.0,
             context_secs: 60.0,
+            context_words: 120,
             nod_min_secs: 7.0,
             nod_max_secs: 16.0,
             reaction_threshold: 0.45,

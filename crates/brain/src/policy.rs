@@ -280,7 +280,7 @@ impl Brain {
         let latest = self.transcript.last()?.text.clone();
         let m = Moment {
             listener: self.cfg.aliases.first().map(String::as_str).unwrap_or(""),
-            transcript: self.transcript.window(now, self.cfg.context_secs),
+            transcript: self.transcript.window_words(now, self.cfg.context_secs, self.cfg.context_words),
             latest: &latest,
             latest_finished: finished,
             secs_since_speech: now - self.room.last_speech_at,

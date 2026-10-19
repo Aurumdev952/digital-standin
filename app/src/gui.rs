@@ -353,6 +353,11 @@ fn settings_ui(ui: &mut egui::Ui, s: &mut Settings, aliases: &mut String, lib: &
         changed |= slider64(ui, &mut b.end_of_utterance_secs, 0.2..=2.0, "pause ending an utterance (s)");
         changed |= slider64(ui, &mut b.decide_every_secs, 0.5..=10.0, "decide during speech every (s)");
         changed |= slider64(ui, &mut b.context_secs, 10.0..=180.0, "transcript context (s)");
+        let mut words = b.context_words as f32;
+        if ui.add(egui::Slider::new(&mut words, 20.0..=400.0).step_by(10.0).text("context words (latency)")).changed() {
+            b.context_words = words as usize;
+            changed = true;
+        }
         changed |= slider64(ui, &mut b.alert_gap_secs, 1.0..=120.0, "gap between alerts (s)");
     });
     egui::CollapsingHeader::new(section("nodding")).default_open(true).show(ui, |ui| {
