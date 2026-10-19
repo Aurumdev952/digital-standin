@@ -17,3 +17,4 @@ tools/nemo-export/.venv/
 .venv/
 test-media/esc50.csv
 test-media/*.vtt
+node_modules
