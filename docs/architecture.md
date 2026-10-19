@@ -59,4 +59,4 @@ The cue thread's voice detector gates speech recognition. It keeps 0.6 s of pre-
 - **Recognition latency.** With 160 ms chunks, words reach the brain about 0.2 to 0.5 s after they are spoken. With `SKIP_ASR_160=1`, the published 560 ms export adds about 0.16 s more. Laughter reactions do not depend on either.
 - **No speaker labels.** The transcript doesn't say who spoke. The decision model judges "addressed to you" from wording and your name, so set your name.
 - **Ghosting.** Crossfading between clips with different head positions shows a faint double outline. Clips that start and end on the neutral pose avoid it.
-- **Memory growth.** The process grows about 2 MB per minute of meeting, about 120 MB per hour. heaptrack places it inside NVIDIA's driver during kernel launches for the speech model. GPU memory stays flat.
+- **Memory growth.** The process grows about 2 MB per minute of meeting, about 120 MB per hour. heaptrack places it inside NVIDIA's driver during kernel launches for the speech model, and runs with and without PipeWire capture and the camera writer grow alike. GPU memory stays flat.

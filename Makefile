@@ -2,7 +2,7 @@
 .DEFAULT_GOAL := help
 BIN := target/release/standin
 
-.PHONY: cpu-check help setup asr-160 build run run-headless run-file demo play listen doctor test eval media chrome-check soak stop clean
+.PHONY: obs-check cpu-check help setup asr-160 build run run-headless run-file demo play listen doctor test eval media chrome-check soak stop clean
 
 help: ## List the targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-14s %s\n", $$1, $$2}'
@@ -49,6 +49,9 @@ eval: build ## Replay every labelled recording and score it (writes out/eval-sum
 
 cpu-check: build ## Live CPU and GPU load with nothing playing, then with speech through the muted speakers
 	scripts/cpu-check.sh
+
+obs-check: ## Record the camera with OBS Studio on a virtual display (needs the stand-in running)
+	scripts/obs-check.sh
 
 chrome-check: ## Open the camera in headless Chrome like Meet does (needs the stand-in running)
 	node scripts/chrome-camera-check.mjs 10

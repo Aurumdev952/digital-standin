@@ -27,6 +27,8 @@ make play
 4. Try `smile`, `laugh`, `thinking` and `confused`. Type `!laugh` to crossfade at once instead of waiting.
 5. Press Ctrl+D to stop.
 
+To check the camera with OBS Studio instead, leave `make play` running and run `make obs-check` in a second terminal. It prints `OBS recorded N frames at 1280x720` and saves a contact sheet to `out/obs-check.png`.
+
 ## 2. Check that muted audio is still heard
 
 1. Play any YouTube video with speech in your browser.
