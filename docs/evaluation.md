@@ -38,7 +38,8 @@ Measured on an RTX 5090 Laptop GPU on 2026-10-19, with the 160 ms speech model. 
 | Persona Cindy, asked "what do you think Cindy" | Alerted, showed `thinking` |
 | Persona Brian, thanked by name | Alerted, no `thinking` |
 | Persona Sam, never mentioned | No alerts |
-| Decision model latency, alone on the GPU | 124 to 212 ms p50, 139 to 373 ms p95 across the scenarios |
+| Decision model latency, alone on the GPU | 107 to 123 ms p50, 121 to 151 ms p95 across the scenarios, with the transcript capped at 120 words (124 to 212 ms p50 uncapped) |
+| Decision latency against prompt length | About 0.2 ms per token: 104 ms at 530 tokens, 297 ms at 1,482. `make decider-kernel` makes it 5 to 11% faster |
 | Speech recognition, 160 ms model | 21 ms GPU time per 160 ms chunk, 6.3× faster than real time; words a median 0.16 s sooner than the 560 ms model, 98% identical words |
 | Silence gate, recording half silence and noise | Recognition ran on 49% of the audio, transcript kept 99% of the words |
 | Live CPU, nothing playing / speech playing | 6% / 45% of one core (35% with the 560 ms model); GPU load about 12% during speech |
@@ -53,5 +54,6 @@ Measured on an RTX 5090 Laptop GPU on 2026-10-19, with the 160 ms speech model. 
 ## What the numbers do not cover
 
 - The laughter set is 12 clips mixed into one meeting. Real meeting laughter, often several people over speech, may score differently. Tune `laugh_threshold` in the control panel.
+- With no name configured, "can you comment on the issue" (asked of someone unnamed) scores 0.81 for "addressed to you" and raises an alert; with any name set it does not. Set your name.
 - The persona checks use one recorded meeting. "Addressed to you" depends on the model reading the situation correctly, and fails more often without a name.
 - Nobody has run it in a live Google Meet call yet. The Chrome check uses the same browser API, but Meet's own processing (background blur, low-light correction) is untested.

@@ -2,7 +2,7 @@
 .DEFAULT_GOAL := help
 BIN := target/release/standin
 
-.PHONY: obs-check cpu-check help setup asr-160 build run run-headless run-file demo play listen doctor test eval media chrome-check soak stop clean
+.PHONY: decider-kernel obs-check cpu-check help setup asr-160 build run run-headless run-file demo play listen doctor test eval media chrome-check soak stop clean
 
 help: ## List the targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-14s %s\n", $$1, $$2}'
@@ -12,6 +12,9 @@ setup: ## One-time setup: packages, camera, models, sidecar, build, clips
 
 asr-160: ## Build the 160 ms speech model (make setup does this unless SKIP_ASR_160=1)
 	scripts/export-asr-160.sh
+
+decider-kernel: ## Optional: compile causal-conv1d for the decision model (5 to 11% faster, about 20 min, needs nvcc)
+	cd sidecar/decider && CUDA_HOME=/usr/local/cuda TORCH_CUDA_ARCH_LIST="12.0" uv pip install --python .venv/bin/python --no-build-isolation causal-conv1d
 
 build: ## Build the release binary
 	cargo build --release

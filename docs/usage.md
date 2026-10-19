@@ -6,6 +6,7 @@
 |---|---|
 | `make setup` | One-time setup. Safe to re-run. |
 | `make asr-160` | Builds the 160 ms speech model. `make setup` runs it unless `SKIP_ASR_160=1`. Needs about 8 GB of disk for NVIDIA NeMo. |
+| `make decider-kernel` | Optional. Compiles `causal-conv1d` so the decision model runs 5 to 11% faster. Takes about 20 minutes and needs `nvcc`. |
 | `make cpu-check` | Live CPU and GPU load with nothing playing, then with speech through the muted speakers. |
 | `make demo` | A 50-second demo with a laugh and a question to "Cindy". Uses no speakers. |
 | `make run` | Control panel plus the live stand-in. Refuses to start when less than 12 GB of GPU memory is free. |
