@@ -146,8 +146,10 @@ pub fn lines<'a>(spans: impl IntoIterator<Item = &'a Span>, timeline: &SpeakerTi
         // Words arrive a little after they are spoken, so the pause can begin before `prev_end`.
         let paused = timeline.longest_silence(prev_end - MIN_WINDOW_SECS, s.end).is_some_and(|q| q >= pause_secs);
         prev_end = s.end;
+        // Text without a leading space finishes the previous word, which cannot be split.
+        let mid_word = !s.text.starts_with(char::is_whitespace);
         match out.last_mut() {
-            Some(l) if !paused && speaker == l.speaker => l.text.push_str(&s.text),
+            Some(l) if mid_word || (!paused && speaker == l.speaker) => l.text.push_str(&s.text),
             _ => out.push(Line { speaker, text: s.text.trim_start().to_string() }),
         }
     }
@@ -195,6 +197,13 @@ mod tests {
         let t = timeline(&[(4.0, Some(0)), (4.0, Some(1)), (4.0, Some(0))]);
         let s = spans(&[(1.0, " hello"), (1.5, " there"), (3.5, " friend"), (4.6, " hi"), (5.2, " back"), (7.6, " so"), (8.9, " again")]);
         assert_eq!(render(&lines(s.iter(), &t, 5.0)), ["S1: hello there friend", "S2: hi back so", "S1: again"]);
+    }
+
+    #[test]
+    fn a_word_split_across_texts_stays_on_one_line() {
+        let t = timeline(&[(4.0, Some(0)), (4.0, Some(1))]);
+        let s = spans(&[(3.0, " shattered"), (3.9, " rec"), (5.0, "ords"), (5.5, " upon")]);
+        assert_eq!(render(&lines(s.iter(), &t, 5.0)), ["S1: shattered records", "S2: upon"]);
     }
 
     #[test]
