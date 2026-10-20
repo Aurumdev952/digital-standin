@@ -108,6 +108,9 @@ def main() -> None:
 
     if not torch.cuda.is_available():
         sys.exit("CUDA is not available to torch")
+    # Feature extraction is the only CPU work. With a thread per core, idle threads spinning
+    # between chunks took 3.6 cores.
+    torch.set_num_threads(1)
     d = Diarizer(args.mode)
     # The first forward allocates and autotunes; pay that before the socket opens.
     t = time.perf_counter()
