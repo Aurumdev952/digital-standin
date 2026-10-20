@@ -8,6 +8,7 @@ Everything runs on your machine. No audio or transcript leaves it.
 - Transcribes speech on the GPU with NVIDIA Nemotron streaming ASR, and only while someone is talking.
 - Detects laughter and applause with an AudioSet tagger, and reacts within about a second.
 - Decides on subtler reactions with `perplexity-ai/pplx-decider-flash-v1.2`, a local decision model.
+- Labels who is speaking in the control panel with `nvidia/Nemotron-3-Diarization`.
 - Publishes a 1280×720, 30 fps camera that Google Meet, Zoom or any browser can select.
 - Comes with a control panel for tuning, and a replay tool that scores it on recorded meetings.
 

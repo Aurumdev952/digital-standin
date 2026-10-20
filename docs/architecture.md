@@ -6,6 +6,7 @@
 PipeWire sink monitor ──► 16 kHz mono ──► voice activity + laughter tagger (CPU) ──────────┐
   (before volume and mute)                 │ speech only, through the Gate                  │ cues
                                            └──► speech-to-text (Nemotron 0.6B, GPU) ────────┤ words
+                         └──► diarizer (Nemotron-3-Diarization, GPU, Python sidecar) ──► who speaks, in the control panel only
                                                                                             ▼
                      decision model (pplx-decider, GPU, Python sidecar) ◄──► brain: reflexes + arbiter ──► alerts
                                                                                   │ reaction
@@ -23,6 +24,7 @@ Every stage runs on its own thread and hands data on through channels. A slow de
 | `crates/video` | Clip manifest, decoding into RAM, the playback state machine, crossfades, and the v4l2loopback writer. |
 | `app` | The `standin` binary: control panel, headless mode, replay and scoring, doctor, alerts, and sidecar management. |
 | `sidecar/decider` | Serves the decision model over a Unix socket, one JSON object per line. |
+| `sidecar/diarizer` | Streams `nvidia/Nemotron-3-Diarization` over a Unix socket: raw samples in, eight speaker probabilities per 80 ms out. |
 
 ## Decisions
 
@@ -54,10 +56,11 @@ The cue thread's voice detector gates speech recognition. It keeps 0.6 s of pre-
 - **The decision model's reference path.** The packed fast path pads short requests to 2048 tokens. It measured 315 ms against 122 ms p50.
 - **A recyclable speech worker.** The CUDA driver keeps about 2 MB a minute for the speech model's kernel launches, and releases it only when the process exits. Recognition therefore runs in a child process. After `recycle_minutes` of speech, a replacement loads in the background and takes over where speech resumes after a pause, and the old one flushes its last words and exits. The main process stays flat, and each worker is retired before it has grown 40 MB.
 - **A Python sidecar.** The decision model needs its own package, with noncausal attention and per-question readouts. A separate process also means a crash there never stops the camera.
+- **A second sidecar for diarization.** The diarizer needs transformers 5.18 or later, and the decision model's package pins 5.17. In its 320 ms streaming mode it takes about 25 to 50 ms of GPU time per 240 ms step and 0.6 GB of GPU memory, and on one CPU thread about a fifth of a core. Audio reaches it whether or not anyone speaks, so speaker turns line up with the stream clock.
 - **v4l2loopback with `exclusive_caps=1`.** Chrome lists a loopback device only with exclusive caps. Chrome's PipeWire camera support is still behind a flag.
 
 ## Known limits
 
 - **Recognition latency.** With 160 ms chunks, words reach the brain about 0.2 to 0.5 s after they are spoken. With `SKIP_ASR_160=1`, the published 560 ms export adds about 0.16 s more. Laughter reactions do not depend on either.
-- **No speaker labels.** The transcript doesn't say who spoke. The decision model judges "addressed to you" from wording and your name, so set your name.
+- **Speaker labels stay in the control panel.** The diarizer tags each transcript line `S1`, `S2` and so on, in the order speakers are first heard. The numbers are not names, and they restart if the sidecar restarts. Text spoken before the diarizer has loaded, about 12 s after start, shows `??`. The decision model still sees an untagged transcript and judges "addressed to you" from wording and your name, so set your name.
 - **Ghosting.** Crossfading between clips with different head positions shows a faint double outline. Clips that start and end on the neutral pose avoid it.

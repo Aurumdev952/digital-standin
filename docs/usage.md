@@ -15,7 +15,7 @@
 | `make play` | Drives the camera by hand. Type a state name such as `nod`, or `!nod` to crossfade immediately. |
 | `make listen` | Records 5 s of the meeting audio to `listen.wav`. |
 | `make doctor` | Checks the camera, audio capture, models, GPU and sidecar. |
-| `make stop` | Stops the stand-in and the decision model. |
+| `make stop` | Stops the stand-in, the decision model and the diarizer. |
 | `make test`, `make eval`, `make media`, `make chrome-check`, `make soak FILE=x.wav` | See [Evaluation](evaluation.md). |
 
 ## The `standin` binary
@@ -28,25 +28,27 @@
 | `standin run --headless [--seconds N]` | No window. Stops after `N` seconds when given. |
 | `standin run --audio-file F` | Uses `F` instead of the meeting audio. |
 | `standin run --no-decider` | Reflexes only: laughter, nods and name alerts. |
+| `standin run --no-diarizer` | No speaker labels. Saves about 0.6 GB of GPU memory. |
 | `standin run --no-camera` | Renders frames without sending them to the camera. |
 | `standin replay F [--labels L] [--no-decider] [--no-gate]` | Runs the whole pipeline offline on `F`. Writes `out/<name>-replay.mp4` (with the audio), `.srt` and `.jsonl`, and scores against `F.labels.toml` when present. |
 | `standin play`, `standin listen`, `standin doctor` | As in the make targets. |
 
 ## The control panel
 
-- **Status bar.** LCD readouts show the state on camera and the one queued next, frames sent and late frames, speech-recognition time per chunk with the share of audio that reached it, and the decision model's status.
+- **Status bar.** LCD readouts show the state on camera and the one queued next, frames sent and late frames, speech-recognition time per chunk with the share of audio that reached it, the decision model's status, and the diarizer's (`SPK`) with its time per chunk.
 - **Camera out.** The preview of what the meeting sees. **HOLD IDLE** freezes the camera on the idle loop until you click **RESUME**. The other buttons trigger a reaction immediately.
 - **Live graphs.** The last 2 minutes of:
   - room laughter, applause and audio level, shaded while someone speaks, with ticks for reactions (lime) and alerts (magenta);
+  - one lane per speaker, filled while they speak;
   - the decision model's probability for each reaction;
-  - speech-recognition and decision latency;
+  - speech-recognition, decision and diarizer latency;
   - camera frame lateness;
   - process CPU;
   - RAM and GPU memory;
   - GPU load.
-- **Live transcript.** The open utterance is in italics.
+- **Live transcript.** Each line starts with its speaker, `S1`, `S2` and so on in the order they were first heard, or `??` before the diarizer knows. A new line starts when the speaker changes or after a pause. The open utterance is in italics.
 - **What the stand-in did.** Every reaction and alert with its reason. Tick **every decision** to see each model call.
-- **Right now.** LED meters for audio, laughter, applause and engagement, and the last decision's probabilities.
+- **Right now.** LED meters for audio, laughter, applause and engagement, who is speaking with a chip per speaker heard so far, and the last decision's probabilities.
 - **Settings.** You can turn each reaction on or off and set the confidence it needs, along with every value in the settings file. Changes apply immediately. **SAVE** writes them to the config file.
 
 ## Settings
@@ -97,3 +99,4 @@ recycle_minutes = 20.0            # speech after which a fresh recognizer proces
 - **`make run` reports too little GPU memory.** Another process holds the GPU, often vLLM. `nvidia-smi` lists it.
 - **No transcript.** The stand-in hears only the system's default output device. In Meet, set **Settings > Audio > Speakers** to **System default**, or to the device your sound settings use. `make doctor` names the device it listens to. To check, run `make listen` while audio plays and confirm `listen.wav` has sound.
 - **The decider says "not ready yet".** It loads for about 20 s after start. Its log is `/tmp/digital-standin-decider.log`.
+- **`SPK STARTING` stays on.** The diarizer loads for about 12 s. Its log is `/tmp/digital-standin-diarizer.log`.
