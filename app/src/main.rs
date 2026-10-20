@@ -5,6 +5,7 @@ mod gui;
 mod live;
 mod replay;
 mod sidecar;
+mod speakers;
 mod telemetry;
 mod theme;
 
