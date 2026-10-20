@@ -1,0 +1,9 @@
+[project]
+name = "standin-diarizer"
+version = "0.1.0"
+description = "Unix-socket server that runs Nemotron-3-Diarization for Digital Standin"
+requires-python = ">=3.12,<3.13"
+dependencies = ["transformers==5.20.2", "torch", "numpy", "librosa"]
+
+[tool.uv]
+package = false

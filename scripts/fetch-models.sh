@@ -5,6 +5,8 @@ mkdir -p models
 
 hf download altunenes/parakeet-rs --include 'nemotron-speech-streaming-en-0.6b/*' --local-dir models/parakeet
 hf download perplexity-ai/pplx-decider-flash-v1.2 --local-dir models/pplx-decider-flash-v1.2
+# The diarizer sidecar loads this from the Hugging Face cache.
+hf download nvidia/Nemotron-3-Diarization
 
 fetch() { [ -s "$2" ] || curl -fL --retry 3 -o "$2" "$1"; }
 # CED-small runs the laughter reflex; CED-mini is only the reference for the parity test.
