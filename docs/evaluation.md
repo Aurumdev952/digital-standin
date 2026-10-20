@@ -7,6 +7,7 @@
 - **Video:** manifest validation, the player state machine (loops, one-shots, urgent crossfades, wrap-around), and the YUYV blend.
 - **Audio:** block numbering, the gate, and dropped consumers.
 - **Cues:** the silence gate (pre-roll, hangover, reset), the mel filterbank, and a parity test of our CED frontend against sherpa-onnx's output on the talk-show recording.
+- **Speakers:** splitting the transcript into lines at speaker changes and pauses, words the diarizer has not reached yet, words split across recognizer texts, and silence before words.
 - **Brain:** settings, transcript windowing, name matching (including names split across recognizer chunks), the decision request and response, and the policy. The policy tests cover laughter timing, gaps, nods, alerts, priorities, deferral, and disabled reactions.
 
 The parity test needs the models and the test media, and skips itself without them.
@@ -18,6 +19,7 @@ The parity test needs the models and the test media, and skips itself without th
 | `make media` | Downloads two public YouTube recordings: a GitLab team meeting on Zoom and a talk-show compilation. It cuts 16 kHz excerpts and mixes 12 ESC-50 laughs into the meeting at known times (`scripts/make-laugh-mix.py`). ESC-50 is CC BY-NC, for local testing only. |
 | `make eval` | Replays every labelled recording through the whole pipeline on the audio's own clock, with the decision model, and writes `out/eval-summary.txt`. |
 | `standin replay F` | One replay. Watch `out/<name>-replay.mp4` with its `.srt` captions to see each reaction and why it happened. |
+| `python3 -I scripts/diarizer-check.py F` | Streams `F` to a running diarizer sidecar in real time and prints the majority speaker per 8 s and the time per chunk. `scripts/make-two-voices.sh` builds `test-media/two-voices.wav`, four 8 s turns by two speakers, A B A B. |
 | `make cpu-check` | Live CPU and GPU load with nothing playing, then with speech through the muted speakers. |
 | `make obs-check` | Records the camera with OBS Studio on a virtual display with a throwaway OBS profile, and reports what OBS captured. |
 | `make chrome-check` | Opens the camera in headless Chrome with `getUserMedia`, as Meet does. Reports resolution and frame rate, and saves snapshots to `out/chrome-check/`. |
@@ -44,6 +46,8 @@ Measured on an RTX 5090 Laptop GPU on 2026-10-19, with the 160 ms speech model. 
 | Speech recognition, 160 ms model | 21 ms GPU time per 160 ms chunk, 6.3× faster than real time; words a median 0.16 s sooner than the 560 ms model, 98% identical words |
 | Silence gate, recording half silence and noise | Recognition ran on 49% of the audio, transcript kept 99% of the words |
 | Live CPU, nothing playing / speech playing | 6% / 45% of one core (35% with the 560 ms model); GPU load about 12% during speech |
+| Diarizer, `two-voices.wav` (2026-10-20) | Majority speaker per turn 0, 1, 0, 1, matching A B A B. Alone: 24 ms p50, 51 ms p90 per 240 ms step, 0.57 GB GPU memory, 15% of one core. In the app, sharing the GPU with recognition and the decision model: about 100 ms per step |
+| Diarizer load, 40 s of `meeting.wav` in the app (2026-10-20) | Sidecar 20% of one core and 572 MiB GPU memory; the app itself 32% with it and 30% without. GPU load samples were too noisy to separate (10% with, 23% without) |
 | Camera in Chrome | 1280×720, 29.95 to 30.0 fps, motion in 99.8% of frames |
 | Camera in OBS Studio 30.0.2 | Captured `/dev/video10` as 1280×720 YUYV at 30 fps; recorded 1037 frames in 35 s showing the stand-in |
 | 43-minute live soak through muted speakers, default settings, run twice | 0 late frames in 77,818 both times; main process 1067 to 1077 MB and 1068 to 1078 MB; speech worker recycled at 20 and 40 minutes, each generation 1.23 to 1.29 GB; 218 and 214 reactions, no errors. Chrome and OBS read the camera during the second run |

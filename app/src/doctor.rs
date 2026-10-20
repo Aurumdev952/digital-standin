@@ -86,7 +86,7 @@ fn gpu() -> Result<String> {
     let line = String::from_utf8_lossy(&out.stdout).trim().to_string();
     let free_mb: f64 = line.rsplit(',').next().and_then(|f| f.trim().trim_end_matches(" MiB").parse().ok()).unwrap_or(0.0);
     if free_mb < 12_000.0 {
-        anyhow::bail!("{line}: about 12 GB free is needed (decider ~10 GB, speech ~1 GB, diarizer ~0.3 GB). Is vLLM still running?");
+        anyhow::bail!("{line}: about 12 GB free is needed (decider ~10 GB, speech ~1 GB, diarizer ~0.6 GB). Is vLLM still running?");
     }
     Ok(line)
 }

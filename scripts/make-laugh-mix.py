@@ -4,6 +4,8 @@ Usage: python3 -I scripts/make-laugh-mix.py   (from the repo root; needs ffmpeg 
 Output: test-media/meeting-laughs.wav and test-media/meeting-laughs.labels.toml
 ESC-50 (Piczak 2015) is CC BY-NC 3.0: fine for local evaluation, not for redistribution.
 """
+import utils.transport
+import utils.session
 import array, csv, io, math, os, random, subprocess, sys, urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
