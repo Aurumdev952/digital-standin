@@ -6,6 +6,8 @@ use anyhow::Result;
 use brain::Settings;
 use brain::decider::{Client, default_socket};
 
+use crate::sidecar::Kind;
+
 /// Prints one line per check and exits non-zero when any fails.
 pub fn run(root: &Path, s: &Settings) -> Result<()> {
     let mut failed = 0;
@@ -36,6 +38,7 @@ pub fn run(root: &Path, s: &Settings) -> Result<()> {
     });
     check("GPU", gpu());
     check("decider sidecar", decider());
+    check("diarizer sidecar", diarizer());
     if failed > 0 {
         anyhow::bail!("{failed} check(s) failed");
     }
@@ -83,7 +86,7 @@ fn gpu() -> Result<String> {
     let line = String::from_utf8_lossy(&out.stdout).trim().to_string();
     let free_mb: f64 = line.rsplit(',').next().and_then(|f| f.trim().trim_end_matches(" MiB").parse().ok()).unwrap_or(0.0);
     if free_mb < 12_000.0 {
-        anyhow::bail!("{line}: about 12 GB free is needed (decider ~10 GB, speech ~1 GB). Is vLLM still running?");
+        anyhow::bail!("{line}: about 12 GB free is needed (decider ~10 GB, speech ~1 GB, diarizer ~0.3 GB). Is vLLM still running?");
     }
     Ok(line)
 }
@@ -92,6 +95,14 @@ fn decider() -> Result<String> {
     let sock = default_socket();
     match Client::connect(&sock, Duration::from_secs(2)).and_then(|mut c| c.ping()) {
         Ok(p) => Ok(format!("answering on {} (fast path {})", sock.display(), p["fast"])),
+        Err(_) => Ok(format!("not running; `standin run` starts it (socket {})", sock.display())),
+    }
+}
+
+fn diarizer() -> Result<String> {
+    let sock = Kind::Diarizer.default_socket();
+    match std::os::unix::net::UnixStream::connect(&sock) {
+        Ok(_) => Ok(format!("answering on {}", sock.display())),
         Err(_) => Ok(format!("not running; `standin run` starts it (socket {})", sock.display())),
     }
 }

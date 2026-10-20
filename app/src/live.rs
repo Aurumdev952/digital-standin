@@ -1,18 +1,21 @@
+use std::io::{BufRead, BufReader, Write};
+use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use audio::Tap;
-use brain::decider::{self, Client};
+use brain::decider::Client;
 use brain::{Brain, BrainConfig, Decision, Output, Settings, StateInfo};
 use crossbeam_channel::{Receiver, RecvTimeoutError, Sender};
 use parking_lot::Mutex;
 use video::{Command, Engine, Library, Manifest, Player, Request, Urgency};
 
 use crate::alerts::Alerter;
-use crate::sidecar::Sidecar;
-use crate::telemetry::{CuePoint, EventKind, Telemetry};
+use crate::sidecar::{Kind, Sidecar};
+use crate::speakers::{self, Frame, Line, MAX_SPEAKERS};
+use crate::telemetry::{CuePoint, Diarizer, EventKind, Telemetry};
 
 pub enum BrainIn {
     Words(asr::Words),
@@ -36,6 +39,7 @@ pub struct Options {
     pub settings: Settings,
     pub audio: AudioSource,
     pub decider: bool,
+    pub diarizer: bool,
     pub sink: Option<Box<dyn video::FrameSink>>,
 }
 
@@ -45,7 +49,7 @@ pub struct Live {
     pub engine: Arc<Engine>,
     pub lib: Arc<Library>,
     pub tx: Sender<BrainIn>,
-    sidecar: Option<Sidecar>,
+    sidecars: Vec<Sidecar>,
     _ort: asr::Environment,
 }
 
@@ -62,7 +66,17 @@ impl Live {
         };
         let engine = Arc::new(Engine::spawn(Player::new(lib.clone(), s.video.blend_frames, seed()), sink));
 
-        let sidecar = if opts.decider { Some(Sidecar::ensure(&opts.root, decider::default_socket())?) } else { None };
+        let mut sidecars = Vec::new();
+        for (on, kind) in [(opts.decider, Kind::Decider), (opts.diarizer, Kind::Diarizer)] {
+            if on {
+                sidecars.push(Sidecar::ensure(&opts.root, kind)?);
+            }
+        }
+        let socket = |kind| sidecars.iter().find(|s: &&Sidecar| s.kind == kind).map(|s| s.socket.clone());
+        let telemetry = Arc::new(Mutex::new(Telemetry {
+            diarizer: if opts.diarizer { Diarizer::Starting } else { Diarizer::Off },
+            ..Default::default()
+        }));
 
         let models = opts.root.join("models");
         let env = asr::environment()?;
@@ -86,7 +100,13 @@ impl Live {
         cues::spawn(det, gate, cue_rx, cues_tx, asr_tx);
 
         let tap = Arc::new(Tap::default());
-        let fanout = audio::Fanout::new(tap.clone(), vec![cue_tx]);
+        let mut consumers = vec![cue_tx];
+        if let Some(path) = socket(Kind::Diarizer) {
+            let (tx, rx) = crossbeam_channel::bounded(256);
+            consumers.push(tx);
+            spawn_diarizer_client(path, rx, telemetry.clone());
+        }
+        let fanout = audio::Fanout::new(tap.clone(), consumers);
         match opts.audio {
             AudioSource::Monitor => audio::capture_default_sink(fanout)?,
             AudioSource::File(path) => {
@@ -99,10 +119,9 @@ impl Live {
         forward(words_rx, tx.clone(), BrainIn::Words);
         forward(cues_rx, tx.clone(), BrainIn::Cues);
         let (ask_tx, ask_rx) = crossbeam_channel::bounded::<serde_json::Value>(1);
-        let socket = sidecar.as_ref().map(|s| s.socket.clone());
-        spawn_decider_client(socket, ask_rx, tx.clone());
+        spawn_decider_client(socket(Kind::Decider), ask_rx, tx.clone());
 
-        let telemetry = Arc::new(Mutex::new(Telemetry { gate: Some(gate_stats), ..Default::default() }));
+        telemetry.lock().gate = Some(gate_stats);
         let states: Vec<StateInfo> =
             lib.states.iter().map(|s| StateInfo { name: s.name.clone(), description: s.description.clone() }).collect();
         let brain = Brain::new(s.brain.clone(), states, lib.states[lib.base].name.clone(), seed());
@@ -121,21 +140,29 @@ impl Live {
         std::thread::Builder::new().name("brain".into()).spawn(move || ctx.run())?;
 
         spawn_resource_monitor(telemetry.clone(), worker_pids);
-        Ok(Self { telemetry, engine, lib, tx, sidecar, _ort: env })
+        Ok(Self { telemetry, engine, lib, tx, sidecars, _ort: env })
     }
 
     /// Stops what must not outlive the app. Call before `exit_now`, which skips destructors.
     pub fn shutdown(&mut self) {
-        if let Some(s) = self.sidecar.as_mut() {
+        for s in &mut self.sidecars {
             s.stop();
         }
     }
 
-    /// Reports, once, that the decider sidecar process died.
-    pub fn sidecar_exited(&mut self) -> Option<String> {
-        let msg = self.sidecar.as_mut()?.exited()?;
-        self.sidecar = None;
-        Some(msg)
+    /// Reports in the telemetry, once, each sidecar process that died.
+    pub fn poll_sidecars(&mut self) {
+        let mut t = self.telemetry.lock();
+        let now = t.now;
+        self.sidecars.retain_mut(|s| {
+            let Some(msg) = s.exited() else { return true };
+            match s.kind {
+                Kind::Decider => t.decider = msg.clone(),
+                Kind::Diarizer => t.diarizer = Diarizer::Failed(msg.clone()),
+            }
+            t.event(now, EventKind::Info, msg);
+            false
+        });
     }
 }
 
@@ -233,6 +260,74 @@ fn spawn_decider_client(socket: Option<PathBuf>, asks: Receiver<serde_json::Valu
         .expect("spawn decider client");
 }
 
+/// Streams the audio to the diarizer sidecar and records the speakers it reports. It never blocks
+/// the audio: while the sidecar is unreachable, blocks are dropped and it reconnects every 2 s.
+fn spawn_diarizer_client(socket: PathBuf, blocks: Receiver<audio::Block>, telemetry: Arc<Mutex<Telemetry>>) {
+    std::thread::Builder::new()
+        .name("diarizer-client".into())
+        .spawn(move || {
+            let mut conn: Option<UnixStream> = None;
+            let mut last_try: Option<Instant> = None;
+            let mut bytes = Vec::new();
+            for (i, block) in blocks.iter().enumerate() {
+                if i % 10 == 0 {
+                    let mut t = telemetry.lock();
+                    t.stream_to_now = t.now - block.end() as f64 / audio::SAMPLE_RATE as f64;
+                }
+                if conn.is_none() && last_try.is_none_or(|t| t.elapsed() >= Duration::from_secs(2)) {
+                    last_try = Some(Instant::now());
+                    conn = connect_diarizer(&socket, block.start_secs(), &telemetry);
+                }
+                let Some(c) = conn.as_mut() else { continue };
+                bytes.clear();
+                bytes.extend(block.samples.iter().flat_map(|s| s.to_le_bytes()));
+                if let Err(e) = c.write_all(&bytes) {
+                    telemetry.lock().diarizer = Diarizer::Failed(format!("diarizer: {e}"));
+                    let _ = c.shutdown(std::net::Shutdown::Both);
+                    conn = None;
+                }
+            }
+        })
+        .expect("spawn diarizer client");
+}
+
+/// Opens a session whose first sample is at stream time `offset`, and starts reading its frames.
+fn connect_diarizer(socket: &Path, offset: f64, telemetry: &Arc<Mutex<Telemetry>>) -> Option<UnixStream> {
+    let conn = UnixStream::connect(socket).ok()?;
+    conn.set_write_timeout(Some(Duration::from_secs(1))).ok()?;
+    let reader = conn.try_clone().ok()?;
+    let telemetry = telemetry.clone();
+    std::thread::Builder::new()
+        .name("diarizer-reader".into())
+        .spawn(move || {
+            for line in BufReader::new(&reader).lines() {
+                let Ok(line) = line else { break };
+                let Ok(msg) = serde_json::from_str::<DiarizerFrames>(&line) else { continue };
+                let mut t = telemetry.lock();
+                let now = t.now;
+                t.diarizer = Diarizer::Ready { ms: msg.ms };
+                t.history.diarizer_ms.push(now, msg.ms);
+                for (i, p) in msg.probs.iter().enumerate() {
+                    let start = offset + msg.start + i as f64 * msg.frame;
+                    t.speakers.push(Frame { start, end: start + msg.frame, p: *p });
+                }
+            }
+            // Stops the writer too, so it reconnects.
+            let _ = reader.shutdown(std::net::Shutdown::Both);
+        })
+        .ok()?;
+    Some(conn)
+}
+
+/// One line from the diarizer sidecar.
+#[derive(serde::Deserialize)]
+struct DiarizerFrames {
+    start: f64,
+    frame: f64,
+    probs: Vec<[f32; MAX_SPEAKERS]>,
+    ms: f32,
+}
+
 struct BrainLoop {
     brain: Brain,
     rx: Receiver<BrainIn>,
@@ -280,6 +375,7 @@ impl BrainLoop {
                 let mut t = self.telemetry.lock();
                 t.asr_ms = w.compute_ms;
                 t.history.asr_ms.push(now, w.compute_ms);
+                t.spans.push(w.audio_end, &w.text);
                 drop(t);
                 self.brain.on_words(now, &w.text)
             }
@@ -358,12 +454,22 @@ impl BrainLoop {
         t.history.jitter_ms.push(now, jitter as f32 / 1000.0);
         t.engagement = self.brain.engagement();
         t.decision = self.brain.last_decision().cloned();
-        t.transcript = window.lines().map(|l| (now, l.to_string(), true)).collect();
-        if let Some(open) = transcript.open()
-            && let Some(last) = t.transcript.last_mut()
-        {
-            last.2 = false;
-            last.1 = format!("{} …", open.text.trim());
+        t.transcript_open = transcript.open().is_some();
+        if t.diarizer == Diarizer::Off {
+            t.transcript = window.lines().map(|l| Line { speaker: None, text: l.to_string() }).collect();
+            if let Some(open) = transcript.open()
+                && let Some(last) = t.transcript.last_mut()
+            {
+                last.text = format!("{} …", open.text.trim());
+            }
+        } else {
+            let lines = speakers::lines(t.spans.iter(), &t.speakers, self.brain.config().end_of_utterance_secs);
+            t.transcript = lines;
+            if t.transcript_open
+                && let Some(last) = t.transcript.last_mut()
+            {
+                last.text.push_str(" …");
+            }
         }
     }
 }

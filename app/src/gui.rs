@@ -6,7 +6,8 @@ use brain::Settings;
 use eframe::egui::{self, Color32, ColorImage, RichText, Stroke, TextureHandle, TextureOptions, pos2, vec2};
 
 use crate::live::{BrainIn, Live, Options};
-use crate::telemetry::{EventKind, HISTORY_SECS, Series, Telemetry};
+use crate::speakers::{ACTIVE, SpeakerTimeline};
+use crate::telemetry::{Diarizer, EventKind, HISTORY_SECS, Series, Telemetry};
 use crate::theme::{self, AMBER, CORAL, CYAN, ICE, LIME, MAGENTA, PALETTE};
 
 pub fn run(opts: Options, settings: Settings, config_path: PathBuf) -> Result<()> {
@@ -80,12 +81,7 @@ impl eframe::App for Panel {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         ui.ctx().request_repaint_after(Duration::from_millis(66));
         theme::backdrop(ui.ctx());
-        if let Some(msg) = self.live.sidecar_exited() {
-            let mut t = self.live.telemetry.lock();
-            let now = t.now;
-            t.decider = msg.clone();
-            t.event(now, EventKind::Info, msg);
-        }
+        self.live.poll_sidecars();
         self.refresh_preview(ui.ctx());
         let stats = *self.live.engine.stats.lock();
         let lib = self.live.lib.clone();
@@ -104,6 +100,13 @@ impl eframe::App for Panel {
                 theme::lcd(ui, &format!("ASR {:.0}MS{share}", t.asr_ms));
                 let decider = if t.decider.is_empty() { "STARTING".to_string() } else { t.decider.to_uppercase() };
                 theme::lcd(ui, &format!("AI {decider}"));
+                let spk = match &t.diarizer {
+                    Diarizer::Off => "OFF".to_string(),
+                    Diarizer::Starting => "STARTING".to_string(),
+                    Diarizer::Ready { ms } => format!("READY {ms:.0}MS"),
+                    Diarizer::Failed(e) => e.chars().take(48).collect::<String>().to_uppercase(),
+                };
+                theme::lcd(ui, &format!("SPK {spk}"));
                 if self.paused {
                     ui.label(RichText::new("■ HOLDING IDLE").monospace().strong().color(MAGENTA));
                 }
@@ -173,9 +176,28 @@ impl eframe::App for Panel {
                 theme::heading(ui, "live transcript");
                 egui::ScrollArea::vertical().id_salt("transcript").max_height(h * 0.36).stick_to_bottom(true).show(ui, |ui| {
                     ui.set_min_width(ui.available_width());
-                    for (_, line, closed) in &t.transcript {
-                        let text = RichText::new(line).size(13.5);
-                        ui.label(if *closed { text } else { text.italics().color(ICE) });
+                    let tagged = t.diarizer != Diarizer::Off;
+                    let n = t.transcript.len();
+                    for (i, line) in t.transcript.iter().enumerate() {
+                        let open = t.transcript_open && i + 1 == n;
+                        let mut job = egui::text::LayoutJob::default();
+                        if tagged {
+                            let (tag, color) = match line.speaker {
+                                Some(s) => (format!("{} ▌ ", speaker_label(s)), speaker_color(s)),
+                                None => ("?? ▌ ".to_string(), Color32::from_rgb(90, 90, 130)),
+                            };
+                            let font = egui::FontId::monospace(13.0);
+                            job.append(&tag, 0.0, egui::TextFormat { font_id: font, color, ..Default::default() });
+                        }
+                        let format = egui::TextFormat {
+                            font_id: egui::FontId::proportional(13.5),
+                            color: if open { ICE } else { Color32::from_rgb(222, 228, 255) },
+                            italics: open,
+                            ..Default::default()
+                        };
+                        job.append(&line.text, 0.0, format);
+                        job.wrap.max_width = ui.available_width();
+                        ui.label(job);
                     }
                 });
             });
@@ -215,8 +237,30 @@ fn now_ui(ui: &mut egui::Ui, t: &Telemetry) {
     theme::led_meter(ui, "laughter", c.laughter, CORAL);
     theme::led_meter(ui, "applause", c.applause, AMBER);
     theme::led_meter(ui, "engagement", t.engagement, LIME);
-    let (dot, text) = if c.speaking { (LIME, "SOMEONE IS SPEAKING") } else { (Color32::from_rgb(90, 90, 130), "QUIET") };
+    // The latest frame goes stale when the audio stops, as at the end of a file.
+    let fresh = t.now - (t.speakers.covered_until() + t.stream_to_now) < 1.0;
+    let active: Vec<u8> = if fresh { t.speakers.active(ACTIVE).map(|(s, _)| s).collect() } else { Vec::new() };
+    let text = match (t.diarizer != Diarizer::Off, active.as_slice()) {
+        (_, _) if !c.speaking && active.is_empty() => "QUIET".to_string(),
+        (true, [s]) => format!("{} IS SPEAKING", speaker_label(*s)),
+        (true, [_, _, ..]) => format!("{} SPEAKING", active.iter().map(|s| speaker_label(*s)).collect::<Vec<_>>().join(" + ")),
+        _ => "SOMEONE IS SPEAKING".to_string(),
+    };
+    let dot = if text == "QUIET" { Color32::from_rgb(90, 90, 130) } else { LIME };
     ui.label(RichText::new(format!("● {text}")).monospace().color(dot));
+    if t.diarizer != Diarizer::Off {
+        ui.horizontal_wrapped(|ui| {
+            for s in t.speakers.seen() {
+                let color = speaker_color(s);
+                let chip = RichText::new(format!(" {} ", speaker_label(s))).monospace().strong();
+                ui.label(if active.contains(&s) {
+                    chip.color(Color32::BLACK).background_color(color)
+                } else {
+                    chip.color(color.gamma_multiply(0.5)).background_color(color.gamma_multiply(0.12))
+                });
+            }
+        });
+    }
     theme::spacer(ui, 4.0);
     if let Some(d) = &t.decision {
         ui.label(
@@ -248,14 +292,55 @@ fn graphs(ui: &mut egui::Ui, t: &Telemetry) {
     let room = [("laughter", CORAL, &h.laughter), ("applause", AMBER, &h.applause), ("level", CYAN, &h.level)];
     Chart { title: "room · shaded = speech · ticks = reactions / alerts", y_max: Some(1.0), unit: "", band: Some(&h.speech), marks: &marks }
         .show(ui, now, &room);
+    if t.diarizer != Diarizer::Off {
+        speaker_strip(ui, now, t.stream_to_now, &t.speakers);
+    }
     let probs: Vec<(&str, Color32, &Series)> =
         h.probs.iter().enumerate().map(|(i, (k, s))| (k.as_str(), PALETTE[i % PALETTE.len()], s)).collect();
     Chart { title: "decision model · p(reaction)", y_max: Some(1.0), unit: "", band: None, marks: &marks }.show(ui, now, &probs);
-    Chart::plain("latency", None, "ms").show(ui, now, &[("speech", CYAN, &h.asr_ms), ("decider", MAGENTA, &h.decider_ms)]);
+    let mut latency = vec![("speech", CYAN, &h.asr_ms), ("decider", MAGENTA, &h.decider_ms)];
+    if t.diarizer != Diarizer::Off {
+        latency.push(("diarizer", AMBER, &h.diarizer_ms));
+    }
+    Chart::plain("latency", None, "ms").show(ui, now, &latency);
     Chart::plain("camera frame lateness", None, "ms").show(ui, now, &[("jitter", LIME, &h.jitter_ms)]);
     Chart::plain("cpu · 100% = one core", None, "%").show(ui, now, &[("cpu", CORAL, &h.cpu_pct)]);
     Chart::plain("memory", None, "MB").show(ui, now, &[("ram", CYAN, &h.rss_mb), ("gpu", MAGENTA, &h.gpu_mb)]);
     Chart::plain("gpu load", Some(100.0), "%").show(ui, now, &[("gpu", MAGENTA, &h.gpu_util)]);
+}
+
+fn speaker_label(s: u8) -> String {
+    format!("S{}", s + 1)
+}
+
+fn speaker_color(s: u8) -> Color32 {
+    PALETTE[s as usize % PALETTE.len()]
+}
+
+/// One lane per speaker seen so far, filled where they speak, on the same time axis as [`Chart`].
+fn speaker_strip(ui: &mut egui::Ui, now: f64, stream_to_now: f64, timeline: &SpeakerTimeline) {
+    let seen: Vec<u8> = timeline.seen().collect();
+    ui.horizontal_wrapped(|ui| {
+        ui.label(RichText::new("SPEAKERS").monospace().size(10.5).color(theme::CHROME));
+        for s in &seen {
+            ui.label(RichText::new(format!("▬ {}", speaker_label(*s))).monospace().size(10.5).color(speaker_color(*s)));
+        }
+    });
+    let lane = 9.0;
+    let (rect, _) = ui.allocate_exact_size(vec2(640.0, (lane * seen.len().max(1) as f32).max(14.0) + 4.0), egui::Sense::hover());
+    let p = ui.painter_at(rect);
+    theme::plot_area(&p, rect, HISTORY_SECS);
+    let x = |t: f64| rect.left() + ((HISTORY_SECS - (now - t - stream_to_now)) / HISTORY_SECS) as f32 * rect.width();
+    for f in timeline.frames().rev().take_while(|f| now - (f.end + stream_to_now) <= HISTORY_SECS) {
+        for (row, s) in seen.iter().enumerate() {
+            if f.p[*s as usize] >= ACTIVE {
+                let top = rect.top() + 2.0 + row as f32 * lane;
+                let r = egui::Rect::from_min_max(pos2(x(f.start).max(rect.left()), top), pos2(x(f.end), top + lane - 2.0));
+                p.rect_filled(r, 1.0, speaker_color(*s));
+            }
+        }
+    }
+    ui.add_space(3.0);
 }
 
 /// A neon line chart of the last [`HISTORY_SECS`] seconds, with an optional shaded on/off band and

@@ -40,6 +40,9 @@ enum Cmd {
         /// Do not start or use the decision model.
         #[arg(long)]
         no_decider: bool,
+        /// Do not start or use the diarizer, which labels who speaks.
+        #[arg(long)]
+        no_diarizer: bool,
         /// No window; print events to the terminal.
         #[arg(long)]
         headless: bool,
@@ -96,11 +99,11 @@ fn main() -> Result<()> {
     let root = project_root();
     let config_path = cli.config.clone().unwrap_or_else(Settings::default_path);
     let settings = Settings::load(&config_path)?;
-    match cli.cmd.unwrap_or(Cmd::Run { audio_file: None, no_decider: false, headless: false, seconds: None, no_camera: false }) {
-        Cmd::Run { audio_file, no_decider, headless, seconds, no_camera } => {
+    match cli.cmd.unwrap_or(Cmd::Run { audio_file: None, no_decider: false, no_diarizer: false, headless: false, seconds: None, no_camera: false }) {
+        Cmd::Run { audio_file, no_decider, no_diarizer, headless, seconds, no_camera } => {
             let audio = audio_file.map(AudioSource::File).unwrap_or(AudioSource::Monitor);
             let sink: Option<Box<dyn video::FrameSink>> = if no_camera { Some(Box::new(video::sink::NullSink)) } else { None };
-            let opts = Options { root, settings: settings.clone(), audio, decider: !no_decider, sink };
+            let opts = Options { root, settings: settings.clone(), audio, decider: !no_decider, diarizer: !no_diarizer, sink };
             if headless {
                 headless_run(Live::start(opts)?, seconds)
             } else {
@@ -167,9 +170,18 @@ fn headless_run(mut live: Live, seconds: Option<f64>) -> Result<()> {
             if let Some(share) = live.telemetry.lock().asr_share() {
                 println!("speech recognition ran on {:.0}% of the audio", share * 100.0);
             }
-            if let Some(last) = live.telemetry.lock().transcript.last() {
-                println!("last transcript line: {}", last.1);
+            let t = live.telemetry.lock();
+            if t.diarizer == telemetry::Diarizer::Off {
+                if let Some(last) = t.transcript.last() {
+                    println!("last transcript line: {}", last.text);
+                }
+            } else {
+                println!("transcript by speaker:");
+                for l in &t.transcript {
+                    println!("  {}  {}", l.speaker.map_or("??".into(), |s| format!("S{}", s + 1)), l.text);
+                }
             }
+            drop(t);
             live.shutdown();
             exit_now(0);
         }

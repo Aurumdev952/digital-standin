@@ -4,6 +4,8 @@ use std::sync::Arc;
 use brain::Decision;
 use cues::GateStats;
 
+use crate::speakers::{Line, SpeakerTimeline, Spans};
+
 /// How much history the graphs keep.
 pub const HISTORY_SECS: f64 = 120.0;
 
@@ -55,6 +57,7 @@ pub struct History {
     pub level: Series,
     pub asr_ms: Series,
     pub decider_ms: Series,
+    pub diarizer_ms: Series,
     pub jitter_ms: Series,
     pub cpu_pct: Series,
     pub rss_mb: Series,
@@ -64,11 +67,27 @@ pub struct History {
     pub probs: BTreeMap<String, Series>,
 }
 
+#[derive(Debug, Clone, Default, PartialEq)]
+pub enum Diarizer {
+    #[default]
+    Off,
+    Starting,
+    Ready { ms: f32 },
+    Failed(String),
+}
+
 /// What the GUI shows, written by the pipeline threads.
 #[derive(Default)]
 pub struct Telemetry {
     pub now: f64,
-    pub transcript: Vec<(f64, String, bool)>,
+    /// Add to a stream time to get the `now` at which that audio arrived.
+    pub stream_to_now: f64,
+    pub transcript: Vec<Line>,
+    /// Whether the last transcript line is still being spoken.
+    pub transcript_open: bool,
+    pub diarizer: Diarizer,
+    pub speakers: SpeakerTimeline,
+    pub spans: Spans,
     pub last_cue: CuePoint,
     pub peak: f32,
     pub decision: Option<Decision>,
